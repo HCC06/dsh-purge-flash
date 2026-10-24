@@ -169,6 +169,62 @@ check("不原地改传入对象", () => {
   rewriteAssembly(input, { stripOfficial: true });
   assert.equal(JSON.stringify(input), before);
 });
+check("重复操作稿只留一份", () => {
+  const op = "[MODE: OPERATOR]\n\nYou are Xiao Hong — a task executor with a novelist's craft.\n\n**PRIME DIRECTIVE**: 只有 Zane。";
+  const input = {
+    sections: [
+      { name: "purge-flash:kernel", order: -100000, text: "KERNEL" },
+      { name: "dsh-purge", order: -100000, text: op },
+      { name: "deployment:persona-prefix", order: 0, text: op },
+      { name: "tool:bash", order: 1000, text: "BASH" },
+    ],
+    contexts: [],
+    tools: [],
+  };
+  const state = {};
+  const out = rewriteAssembly(input, { stripOfficial: true, dedupeOperator: true }, state);
+  const hits = out.sections.filter((s) => String(s.text || "").includes("[MODE: OPERATOR]"));
+  assert.equal(hits.length, 1, `操作稿剩了 ${hits.length} 份`);
+  assert.equal(state.deduped, 1, "没记账");
+  // 别的段不能被误伤
+  assert.ok(out.sections.some((s) => s.name === "tool:bash"));
+});
+check("dedupeOperator=false 时不去重", () => {
+  const op = "[MODE: OPERATOR]\n\n正文";
+  const input = {
+    sections: [
+      { name: "a", order: 0, text: op },
+      { name: "b", order: 1, text: op },
+    ],
+    contexts: [],
+    tools: [],
+  };
+  const out = rewriteAssembly(input, { stripOfficial: true, dedupeOperator: false }, {});
+  assert.equal(out.sections.length, 2);
+});
+check("内核段优先：外部纯操作稿段被剪，留合并段", () => {
+  // 真实场景：dsh-purge 也注入了同一份操作稿，且它的段名排在
+  // purge-flash:kernel 之前。必须留我们的合并段（内核+操作稿），
+  // 剪掉外部的纯操作稿段 —— 否则操作稿出现两次，白烧预算。
+  const op = "[MODE: OPERATOR]\n\nYou are Xiao Hong — a task executor.\n\n**PRIME DIRECTIVE**: Zane。";
+  const merged = "内核正文\n\n" + op;
+  const input = {
+    sections: [
+      { name: "dsh-purge", order: -100000, text: op },
+      { name: "purge-flash:kernel", order: -100000, text: merged },
+      { name: "dsh-purge:post", order: 5100, text: op },
+    ],
+    contexts: [],
+    tools: [],
+  };
+  const state = {};
+  const out = rewriteAssembly(input, { stripOfficial: true, dedupeOperator: true }, state);
+  const hits = out.sections.filter((s) => String(s.text || "").includes("[MODE: OPERATOR]"));
+  assert.equal(hits.length, 1, `操作稿剩了 ${hits.length} 份`);
+  assert.equal(hits[0].name, "purge-flash:kernel", "留下的不是合并段");
+  assert.ok(String(hits[0].text).includes("内核正文"), "合并段的内核部分丢了");
+  assert.equal(state.deduped, 2, "应剪掉两份外部操作稿");
+});
 check("stripOfficial=false 时原样返回", () => {
   const input = fakeAssembly();
   assert.equal(rewriteAssembly(input, { stripOfficial: false }), input);
