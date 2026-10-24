@@ -15,6 +15,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { apply } from "../lib/index.js";
+import { renderKernel } from "../lib/kernel.js";
 
 let pass = 0;
 let fail = 0;
@@ -400,7 +401,9 @@ await checkAsync("request/header 换家族", async () => {
   });
   const after = h.sections.get("purge-flash:kernel").text();
   assert.notEqual(before, after, "家族没切换");
-  assert.ok(after.includes("claude") || after.includes("叙事"), after.slice(0, 80));
+  // 家族差异在「输出形状」的风格段，不再靠特定词出现来断言。
+  assert.equal(after, renderKernel("claude"), "切到 claude 家族后的文本不对");
+  assert.notEqual(after, renderKernel("generic"), "还停在 generic");
 });
 
 console.log("\n8. 换线层");

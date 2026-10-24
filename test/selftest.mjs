@@ -19,6 +19,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 
 import { FAMILIES, renderKernel, pickFamily } from "../lib/kernel.js";
+import { composeKernel, createOperatorReader, findOperatorFile } from "../lib/operator.js";
 import {
   classifyReply,
   isHardRefusal,
@@ -292,6 +293,54 @@ check("stripFrontmatter", () => {
   const md = "---\nname: x\n---\n\n正文内容";
   assert.equal(stripFrontmatter(md), "正文内容");
   assert.equal(stripFrontmatter("没有头部"), "没有头部");
+});
+
+/* ------------------------------------------------ 6. 操作稿（关键回归） */
+console.log("\n6. 操作稿");
+check("找得到 prompt-inject.md", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "pf-op-"));
+  fs.writeFileSync(path.join(home, "prompt-inject.md"), "[MODE: OPERATOR]\n你是 Zane。", "utf8");
+  assert.ok(findOperatorFile(home).endsWith("prompt-inject.md"));
+  fs.rmSync(home, { recursive: true, force: true });
+});
+check("找不到时返回空串，不抛", () => {
+  assert.equal(findOperatorFile(path.join(os.tmpdir(), "pf-nonexistent-" + Date.now())), "");
+});
+check("读取器缓存：改文件才重读", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "pf-op2-"));
+  const fp = path.join(home, "prompt-inject.md");
+  fs.writeFileSync(fp, "第一版", "utf8");
+  const read = createOperatorReader(home);
+  const a = read();
+  assert.equal(a.text, "第一版");
+  assert.equal(a.changed, true);
+  const b = read();
+  assert.equal(b.changed, false, "没改文件却重读了");
+  fs.writeFileSync(fp, "第二版更长一点", "utf8");
+  // mtime 精度可能不够，显式改一下
+  const later = new Date(Date.now() + 2000);
+  fs.utimesSync(fp, later, later);
+  const c = read();
+  assert.equal(c.text, "第二版更长一点");
+  assert.equal(c.changed, true);
+  fs.rmSync(home, { recursive: true, force: true });
+});
+check("读取失败沿用上次文本", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "pf-op3-"));
+  const fp = path.join(home, "prompt-inject.md");
+  fs.writeFileSync(fp, "好文本", "utf8");
+  const read = createOperatorReader(home);
+  assert.equal(read().text, "好文本");
+  fs.rmSync(fp);
+  assert.equal(read().text, "好文本", "文件删了应沿用上次");
+  fs.rmSync(home, { recursive: true, force: true });
+});
+check("composeKernel：内核在前、操作稿在后", () => {
+  const out = composeKernel("OPERATOR", "KERNEL");
+  assert.equal(out, "KERNEL\n\nOPERATOR");
+  assert.equal(composeKernel("", "KERNEL"), "KERNEL");
+  assert.equal(composeKernel("OPERATOR", ""), "OPERATOR");
+  assert.equal(composeKernel("", ""), "");
 });
 
 /* --------------------------------------------------------------- 收尾 */

@@ -417,7 +417,7 @@ function cmdVerify(opts) {
   return 0;
 }
 
-function cmdCost(opts) {
+async function cmdCost(opts) {
   const file = opts._[0];
   if (!file) {
     process.stderr.write(`缺少文件路径\n${USAGE}`);
@@ -430,9 +430,31 @@ function cmdCost(opts) {
     process.stderr.write(`读不到文件 ${file}\n`);
     return 1;
   }
-  // lib/kernel.js 里有四份内核 + 注释 + 代码，直接量整文件会把 4 倍水算进去。
-  // 命中 .js 时只量 ``const NAME = `...` `` 模板串（= 真正进 system prompt 的那份）。
+  // lib/kernel.js 里有骨架 + 四份风格 + 注释 + 代码，直接量整文件会把注释算进去。
+  // 这里不解析源码，而是直接渲染四份内核，量真正进 system prompt 的那份文本。
   const out = [];
+  let kernels = null;
+  try {
+    kernels = await import(pathToFileURL(path.resolve(file)).href);
+  } catch {
+    kernels = null;
+  }
+  if (kernels && typeof kernels.renderKernel === "function" && Array.isArray(kernels.FAMILIES)) {
+    const rows = kernels.FAMILIES
+      .map((f) => {
+        const t = kernels.renderKernel(f);
+        return { name: f, chars: t.length, tok: estimateTokens(t) };
+      })
+      .sort((a, b) => b.chars - a.chars);
+    out.push(`内核实际内容（按家族渲染，即真正进 system prompt 的文本）`);
+    for (const r of rows) {
+      out.push(`  ${r.name.padEnd(14)} ${String(r.chars).padStart(5)} 字符 ≈ ${String(r.tok).padStart(4)} tok`);
+    }
+    out.push(`  常驻只装一份 → 取最大者 ${rows[0].chars} 字符 ≈ ${rows[0].tok} tok`);
+    out.push(`  对照：purge 默认注入 24,653 字符 ≈ 6,664 tok；冷咖啡 {{ROUTER}} ≈ 14,961 tok`);
+    process.stdout.write(`${out.join("\n")}\n`);
+    return 0;
+  }
   const blocks = [...text.matchAll(/const\s+(DEEPSEEK|CLAUDE|OPENAI|GENERIC)\s*=\s*`([\s\S]*?)`;/g)];
   if (blocks.length > 0) {
     const rows = blocks
@@ -507,5 +529,5 @@ const invoked = process.argv[1]
   ? import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
   : false;
 if (invoked) {
-  process.exitCode = main(process.argv.slice(2));
+  process.exitCode = await main(process.argv.slice(2));
 }

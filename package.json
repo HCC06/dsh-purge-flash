@@ -1,6 +1,6 @@
 {
   "name": "dsh-purge-flash",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "聊天破甲插件：薄内核 + 宿主侧剥离 + 拒答修补 + 连拒换线 + 反撤回镜像 + 撤回。只做聊天，不带网络攻击、不带路由表、零宿主文件补丁。",
   "type": "module",
   "main": "lib/index.js",

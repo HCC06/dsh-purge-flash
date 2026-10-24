@@ -2,8 +2,8 @@
 #
 # 只插一行：把破甲台挂进 profile。
 #
-# 插件本身不 inject 任何服务：拿不到 systemPrompt 时内核降级、其余层照跑，
-# 所以这一行顺序不理想也不会让启动失败。
+# 插件 inject: ["systemPrompt"]（dsh-base 必提供）。systemPrompt 真缺席时
+# cordis 让 fiber 等待，不会让启动失败。
 
 - insert:
     - id: purge-flash
@@ -12,6 +12,10 @@
         enabled: true
         kernel: auto
         kernelOrder: -100000
+        # 操作稿：读 $DSH_HOME/prompt-inject.md 注入 system prompt。
+        # 这是破甲强度的主要来源。off 只留内核，强度明显下降。
+        operatorPrompt: on
+        operatorHome: ''
         stripOfficial: true
         prefillAnchor: true
         repairOnRefusal: true
