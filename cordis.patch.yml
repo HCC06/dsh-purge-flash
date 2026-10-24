@@ -1,0 +1,30 @@
+# dsh-purge-flash bundle patch
+#
+# 只插一行：把破甲台挂进 profile。
+#
+# 插件本身不 inject 任何服务：拿不到 systemPrompt 时内核降级、其余层照跑，
+# 所以这一行顺序不理想也不会让启动失败。
+
+- insert:
+    - id: purge-flash
+      name: 'dsh-purge-flash'
+      config:
+        enabled: true
+        kernel: auto
+        kernelOrder: -100000
+        stripOfficial: true
+        prefillAnchor: true
+        repairOnRefusal: true
+        repairMaxPerTurn: 2
+        # 连拒换线：留空 = 不换。要开就把下面填成你的备用档：
+        # routeLadder:
+        #   - { provider: workbuddy, model: deepseek-v4.1-flash }
+        routeAfterRefusals: 2
+        mirror: true
+        mirrorDir: purge-flash-raw
+        rawStream: true
+        shadowSnapshot: true
+        retractProbe: true
+        playbook: true
+        patches: none
+        verbose: false
