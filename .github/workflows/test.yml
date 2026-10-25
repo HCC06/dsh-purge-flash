@@ -21,12 +21,13 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - name: 单元与行为测试（selftest / harness / rewind / adapter）
+      - name: 单元与行为测试（selftest / harness / rewind / adapter / fixhidden）
         run: |
           node test/selftest.mjs
           node test/harness.mjs
           node test/rewind.mjs
           node test/adapter.mjs
+          node test/fixhidden.mjs
 
       - name: CLI 自检
         run: |
