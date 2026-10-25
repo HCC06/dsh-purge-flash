@@ -29,6 +29,11 @@ jobs:
           node test/adapter.mjs
           node test/fixhidden.mjs
 
+      - name: 词表与占位符契约
+        run: |
+          node tools/lexicon-audit.mjs --strict
+          node tools/placeholders.mjs --strict
+
       - name: CLI 自检
         run: |
           node bin/armor.mjs cost lib/kernel.js
