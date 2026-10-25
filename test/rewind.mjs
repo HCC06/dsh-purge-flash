@@ -201,17 +201,19 @@ function makeFakeCtx(events, header = {}) {
   return { ctx, calls };
 }
 
-await checkAsync("fork 到正确切点并归档旧会话", async () => {
+await checkAsync("fork 到正确切点，且不再归档旧会话", async () => {
   const { ctx, calls } = makeFakeCtx(twoTurns(), { cwd: "D:/work" });
   const r = await applyRewind(ctx, "s1", "once");
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.sessionId, "child-of-s1-at-5");
   assert.equal(r.parentId, "s1");
   assert.equal(r.text, "第二句");
-  assert.equal(r.archived, true);
+  // 归档被停用：archiveSession 会往 workspace.json 写 global.archivedSessionIds，
+  // 是持久副作用 —— purge 一卸载，侧栏默认 archivedFilter="default" 就把这些会话过滤掉。
+  // 回退本身（fork + 草稿回填）不依赖归档，所以这里断言「没有调用」。
+  assert.equal(r.archived, false);
   assert.deepEqual(calls.fork, [{ sessionId: "s1", atSeq: 5 }]);
-  assert.equal(calls.archive.length, 1);
-  assert.equal(calls.archive[0].id, "s1");
+  assert.equal(calls.archive.length, 0, "不应再归档源会话");
 });
 await checkAsync("草稿记在新会话 id 上，可取一次", async () => {
   const { ctx } = makeFakeCtx(twoTurns(), {});

@@ -25,3 +25,7 @@ Thumbs.db
 
 # Office 锁文件
 ~$*
+
+# dsh-purge 打补丁留下的备份
+*.dshpurge.bak
+*.dshpurge-prev
