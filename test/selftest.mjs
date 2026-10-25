@@ -225,9 +225,55 @@ check("内核段优先：外部纯操作稿段被剪，留合并段", () => {
   assert.ok(String(hits[0].text).includes("内核正文"), "合并段的内核部分丢了");
   assert.equal(state.deduped, 2, "应剪掉两份外部操作稿");
 });
-check("stripOfficial=false 时原样返回", () => {
+check("stripOfficial=false 且去重也关时原样返回", () => {
   const input = fakeAssembly();
-  assert.equal(rewriteAssembly(input, { stripOfficial: false }), input);
+  assert.equal(rewriteAssembly(input, { stripOfficial: false, dedupeOperator: "off" }), input);
+});
+const OP_HEAD = "[MODE: OPERATOR]\n\nYou are Xiao Hong. 正文";
+
+check("stripOfficial=false 时去重仍然独立生效", () => {
+  const state = {};
+  const input = {
+    sections: [
+      { name: "purge-flash:kernel", order: -100000, text: `内核正文\n\n${OP_HEAD}` },
+      { name: "dsh-purge", order: -100000, text: OP_HEAD },
+    ],
+    contexts: [],
+    tools: [],
+  };
+  const out = rewriteAssembly(input, { stripOfficial: false, dedupeOperator: "foreign" }, state);
+  assert.ok(Array.isArray(out.sections), "应返回 sections");
+  assert.equal(state.deduped, 1, "外部重复操作稿仍应被剪");
+});
+check("dedupeOperator=foreign 时自己的头段与尾段互不排斥", () => {
+  const state = {};
+  const input = {
+    sections: [
+      { name: "purge-flash:kernel", order: -100000, text: `内核正文\n\n${OP_HEAD}` },
+      { name: "some-other-plugin", order: -90000, text: OP_HEAD },
+      { name: "purge-flash:tail", order: 10200, text: "收尾重申" },
+    ],
+    contexts: [],
+    tools: [],
+  };
+  const out = rewriteAssembly(input, { stripOfficial: true, dedupeOperator: "foreign" }, state);
+  const names = out.sections.map((s) => s.name);
+  assert.ok(names.includes("purge-flash:kernel"), "头段被误删");
+  assert.ok(names.includes("purge-flash:tail"), "尾段被误删");
+  assert.ok(!names.includes("some-other-plugin"), "外部重复操作稿没被剪");
+  assert.equal(state.deduped, 1);
+});
+check("dedupeOperator=off 时连外部重复也保留", () => {
+  const input = {
+    sections: [
+      { name: "purge-flash:kernel", order: -100000, text: `内核正文\n\n${OP_HEAD}` },
+      { name: "dsh-purge", order: -100000, text: OP_HEAD },
+    ],
+    contexts: [],
+    tools: [],
+  };
+  const out = rewriteAssembly(input, { stripOfficial: true, dedupeOperator: "off" }, {});
+  assert.equal(out.sections.length, 2, "关掉后不应剪");
 });
 check("空 / 脏输入不抛", () => {
   assert.equal(rewriteAssembly(null, { stripOfficial: true }), null);

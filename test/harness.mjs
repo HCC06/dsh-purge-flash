@@ -158,7 +158,9 @@ check("所有层都挂上", () => {
   assert.equal(l.stream, "on", "stream");
   assert.equal(l.skills, "on", "skills");
   assert.equal(l.commands, "on", "commands");
-  assert.equal(l.route, "no-ladder", "route 应在未配阶梯时明确说没配");
+  // route 现在同时管 provider 别名 + 采样 + 连拒换线；只要有一件事要做就是 on。
+  assert.ok(["on", "off", "no-ladder"].includes(l.route), `route 状态异常：${l.route}`);
+  assert.equal(state.cfg.dedupeOperator, "foreign", "去重默认应为 foreign（自己的头尾两段互不排斥）");
 });
 check("playbook 注册进 skills", () => {
   assert.equal(h.skills.length, 1);

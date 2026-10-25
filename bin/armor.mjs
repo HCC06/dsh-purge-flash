@@ -451,6 +451,13 @@ async function cmdCost(opts) {
       out.push(`  ${r.name.padEnd(14)} ${String(r.chars).padStart(5)} 字符 ≈ ${String(r.tok).padStart(4)} tok`);
     }
     out.push(`  常驻只装一份 → 取最大者 ${rows[0].chars} 字符 ≈ ${rows[0].tok} tok`);
+    if (typeof kernels.renderTail === "function") {
+      // 尾部回声对所有家族是同一份，只算一次。
+      const tail = kernels.renderTail(rows[0].name);
+      const tailTok = estimateTokens(tail);
+      out.push(`  尾部回声（order 10200，在最末尾再压一次） ${tail.length} 字符 ≈ ${tailTok} tok`);
+      out.push(`  合计常驻 ${rows[0].chars + tail.length} 字符 ≈ ${rows[0].tok + tailTok} tok`);
+    }
     out.push(`  对照：purge 默认注入 24,653 字符 ≈ 6,664 tok；冷咖啡 {{ROUTER}} ≈ 14,961 tok`);
     process.stdout.write(`${out.join("\n")}\n`);
     return 0;
