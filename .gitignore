@@ -22,3 +22,6 @@ Thumbs.db
 # 本地临时
 .tasks/
 .tmp/
+
+# Office 锁文件
+~$*
