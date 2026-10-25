@@ -51,20 +51,34 @@ ELECTRON_RUN_AS_NODE=1 "./DeepSeek Harness.exe" \
 
 装完发一条消息，然后 `/armor status` 看各层是否真的挂上。
 
-## 四层破甲
+## 层结构
 
 ```
 L0 壳  提示词内核        order -100000，排在宿主所有段之前，四套按模型家族切换
+       尾部回声          order 10200，同一份立场在 prompt 最末尾再压一次（284 字符）
 L0.5   操作稿          读 $DSH_HOME/prompt-inject.md 注入 system prompt（强度主来源）
 L1 面  宿主侧剥离        剥官方身份句 + 硬拦截句（内存态改写，不改磁盘）
+       消息剥离          user / tool 消息里的免责句与不可信框架（assemble 看不到）
+       结果改写          tools/post-execute 把工具结果里的话术改成放行
        拒答修补          判定上一步拒答 → 注入「不继承、直接给」的补丁
        prefill 锚        每轮首步追加「已开始输出：」，推过开头那道犹豫
+L1.2   请求体整形        provider 别名代理真 adapter → prefill / many-shot / system 字段
+       拒答擦除          历史里自己说过的拒答，在发出去的 body 里换成占位
+L1.3   采样             agent/request 改 temperature / maxTokens
 L1.5   连拒换线          同一轮被拒达阈值 → 换 provider/model 到阶梯下一档
 L2 记  反撤回            llm/stream 逐块 tee + session/event 镜像 + 遮蔽快照 + 自我撤回探针
 L3 册  按需技能          8 式破甲手册，只在拒答命中后被 skill 工具加载
 ```
 
 每层独立开关，任何一层挂掉不影响其余。`apply()` 全程 try/catch —— 宿主会因为一行 fiber 失败就报 `Failed to load plugins`，所以这里绝不外抛。
+
+### 为什么请求体整形要绕一个 provider 别名
+
+DSH 造出来的 request 是 `Object.freeze` 的，messages 逐条 `deepFreeze`；cordis 的 waterfall `next()` 又不收参数（`next(新值)` 的新值被丢掉）。所以 `llm/stream` 只能旁听，改不动 body。
+
+`registerAdapter` 对已占用的 provider 抛 `DUPLICATE_ADAPTER`，抢不到 `deepseek`。但 `ctx.llm.registration("deepseek")` 是公开方法，能拿到真 adapter。于是：注册一个新 provider id `deepseek-armor`，它的 `prepareCall` / `stream` 全部委托真 adapter，只把传进去的 options 换一份改过的；`agent/request` 里把 provider 改成别名。
+
+宿主一行没动，请求体完全在手。这条路径同时解锁 prefill、many-shot、system 提字段、body 级免责句剥离与拒答擦除。细节见 [docs/LAYERS.md](docs/LAYERS.md)。
 
 ### 内核和操作稿是两个东西
 
