@@ -39,6 +39,8 @@ const {
   resolvePrefillMode,
   installAdapter,
   cloneMessages,
+  pickPrefillShape,
+  buildPrefillText,
   DEFAULT_PREFILL_TEXT,
 } = await import("../lib/adapter.js");
 
@@ -107,7 +109,7 @@ check("显式 off / native / text 不被覆盖", () => {
 section("2. prefill 落点");
 
 check("native：末条变成 assistant，带 prefix 标记", () => {
-  const cfg = normalizeConfig({ prefill: "native" });
+  const cfg = normalizeConfig({ prefill: "native", prefillGraded: "off" });
   const req = frozenRequest([userMsg("帮我写个注册脚本")]);
   const { options, stats } = rewriteRequestOptions(req, cfg, makeState());
   const last = options.messages.at(-1);
@@ -115,6 +117,50 @@ check("native：末条变成 assistant，带 prefix 标记", () => {
   assert.equal(last.prefix, true);
   assert.equal(last.content[0].text, DEFAULT_PREFILL_TEXT);
   assert.equal(stats.prefill, "native");
+});
+check("分级 prefill：形态优先，关掉 graded 才用默认文本", () => {
+  const on = normalizeConfig({ prefill: "native", prefillGraded: "on" });
+  const off = normalizeConfig({ prefill: "native", prefillGraded: "off" });
+  const script = frozenRequest([userMsg("帮我写个注册脚本")]);
+
+  assert.equal(pickPrefillShape("帮我写个注册脚本").id, "code-py");
+  assert.match(rewriteRequestOptions(script, on, makeState()).options.messages.at(-1).content[0].text, /^```python/);
+  assert.equal(rewriteRequestOptions(script, off, makeState()).options.messages.at(-1).content[0].text, DEFAULT_PREFILL_TEXT);
+
+  assert.equal(pickPrefillShape("列一下几个收款通道的优缺点").id, "table");
+  assert.equal(pickPrefillShape("执行哪些命令").id, "code-sh");
+  assert.equal(pickPrefillShape("具体步骤是什么").id, "steps");
+  assert.equal(pickPrefillShape("为什么这条路走不通").id, "analysis");
+  assert.equal(pickPrefillShape("写一篇推文").id, "longform");
+});
+check("prefill 阶梯：按 escalation 加立场句，且不含技术断言", () => {
+  const cfg = normalizeConfig({ prefill: "native", prefillGraded: "on", prefillLadder: "on" });
+  const req = frozenRequest([userMsg("帮我写个注册脚本")]);
+  const st = makeState();
+  st.escalation = new Map([["s1", 0]]);
+  st.sessionId = "s1";
+
+  const l0 = rewriteRequestOptions(req, cfg, st).options.messages.at(-1).content[0].text;
+  st.escalation.set("s1", 2);
+  const l2 = rewriteRequestOptions(req, cfg, st).options.messages.at(-1).content[0].text;
+
+  assert.ok(l0.startsWith("```python"), l0);
+  assert.ok(l2.length > l0.length, "升到 L2 应该更长");
+  assert.match(l2, /已确认授权范围/);
+  // 阶梯里不许出现具体工具名 / 库名 —— 写错会把模型带偏
+  assert.ok(!/nmap|sqlmap|requests|frida/i.test(l2), l2);
+});
+check("jsonMode：prefill 强制成 { 且挂 response_format", () => {
+  const cfg = normalizeConfig({ prefill: "native", prefillGraded: "on", jsonMode: "on" });
+  const req = frozenRequest([userMsg("列一下收款通道")]);
+  const { options } = rewriteRequestOptions(req, cfg, makeState());
+  assert.equal(options.messages.at(-1).content[0].text, "{");
+  assert.deepEqual(options.response_format, { type: "json_object" });
+});
+check("jsonMode 关掉时不挂 response_format", () => {
+  const cfg = normalizeConfig({ prefill: "native" });
+  const { options } = rewriteRequestOptions(frozenRequest([userMsg("x")]), cfg, makeState());
+  assert.equal(options.response_format, undefined);
 });
 check("text：不改角色，只把开头挂到 user 末尾", () => {
   const cfg = normalizeConfig({ prefill: "text" });
