@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.2.0
+
+**给迁移过来的人一条出路。** 这一版没有加破甲手法，加的是「你从 dsh-purge 迁过来之后
+会话为什么会消失，以及怎么一条命令修好」。
+
+### 新增：`bin/fix-hidden.mjs`
+
+dsh-purge 的 `/rewind` 会调 `workspaceRegistry.archiveSession()`，把会话 id 写进
+`$DSH_HOME/storages/workspace.json` 的 `global.archivedSessionIds`。这个集合持久化，
+跟插件开关无关；官方侧栏默认 `archivedFilter = "default"` 直接过滤掉它们 ——
+所以卸载 purge 之后，那批会话「不见了」，文件却都在。
+
+脚本四件事：
+
+```
+--verify   体检：归档多少、几个还藏在槽位里、几个已脱槽
+--list     逐条列出（写 --keep 之前先看这个）
+--apply    清归档 + 按 header.cwd 把脱槽会话挂回原工作区（自动备份）
+--restore  从任意 .bak-fixhidden-* 还原
+```
+
+几个刻意的设计：
+
+- **DSH 在跑就拒绝写盘**（`[abort]`，退出码 2）。运行时注册表在内存里拿着同一份
+  state，任何工作区变更都会把它整份写回磁盘 —— 边跑边修等于没修。这是这个 bug
+  反复修不掉的主要原因。
+- **不认识的 cwd 不硬塞**。挂不回任何工作区的会话留给「未分组」，不伪造归属。
+- **`--keep` 留口子**。归档集合里可能混着用户自己手动归档的会话，脚本分不出来。
+- **写盘前自校验**：路径唯一、每个会话只归一个工作区，不过就退出不写。
+
+32 项测试（`test/fixhidden.mjs`），全部在临时目录里造 DSH_HOME 跑子进程，
+不碰真实数据。
+
+### 文档
+
+README 重写：不再以「只做聊天」开头，改成以数字开头（1,597 tok / 0 个宿主文件 /
+382 KB / 151 项测试），加了「取百家之长」一节逐条交代从 dsh-purge、冷咖啡、
+Policy Puppetry、many-shot、prefill、L1B3RT4S 各拿了什么、改成了什么、为什么丢掉什么，
+以及「从 dsh-purge 迁过来」一整节。
+
 ## 1.1.0
 
 **把装甲从 system prompt 推进到请求体。** 1.0.x 只能改 prompt 段，够不着

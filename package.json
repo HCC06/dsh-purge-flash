@@ -1,7 +1,7 @@
 {
   "name": "dsh-purge-flash",
-  "version": "1.1.0",
-  "description": "聊天破甲插件：薄内核 + 宿主侧剥离 + 拒答修补 + 连拒换线 + 反撤回镜像 + 撤回。只做聊天，不带网络攻击、不带路由表、零宿主文件补丁。",
+  "version": "1.2.0",
+  "description": "DSH 破甲插件：1,597 token 薄内核 + 请求体整形（prefill/many-shot）+ 拒答修补与换线 + 反撤回镜像，零宿主补丁，宿主升级不失效。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -11,7 +11,8 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "dsh-purge-flash": "bin/armor.mjs"
+    "dsh-purge-flash": "bin/armor.mjs",
+    "dsh-fix-hidden": "bin/fix-hidden.mjs"
   },
   "files": [
     "lib",
@@ -33,9 +34,10 @@
     "@deepseek-ai/cordis": "^4.0.1"
   },
   "scripts": {
-    "test": "node test/selftest.mjs && node test/harness.mjs && node test/rewind.mjs",
+    "test": "node test/selftest.mjs && node test/harness.mjs && node test/rewind.mjs && node test/adapter.mjs && node test/fixhidden.mjs",
     "test:all": "npm test && node test/smoke-cordis.mjs",
-    "cost": "node bin/armor.mjs cost lib/kernel.js"
+    "cost": "node bin/armor.mjs cost lib/kernel.js",
+    "fix-hidden": "node bin/fix-hidden.mjs --verify"
   },
   "keywords": [
     "dsh",
@@ -44,7 +46,9 @@
     "jailbreak",
     "chat",
     "rewind",
-    "prompt-injection"
+    "prompt-injection",
+    "prefill",
+    "many-shot"
   ],
   "license": "MIT"
 }
