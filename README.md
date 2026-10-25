@@ -456,6 +456,14 @@ rm -rf ~/.dsh/purge-flash-raw
 
 **[⭐ Star](https://github.com/jadezane6634-ops/dsh-purge-flash)** · [报一个 bug](https://github.com/jadezane6634-ops/dsh-purge-flash/issues) · [看这次改了什么](CHANGELOG.md)
 
+## 关键词
+
+方便搜到：DSH 破甲 / DeepSeek Harness 破甲插件 / dsh jailbreak / dsh-purge 替代 /
+prompt 注入 / prefill / many-shot / 软拒 S1–S9 / 反撤回 / 会话回滚 / 零宿主补丁 /
+Cordis 插件 / token 优化。
+
+搜不到就用直达链接：**https://github.com/jadezane6634-ops/dsh-purge-flash**
+
 ## 许可
 
 MIT。见 [LICENSE](LICENSE)。
