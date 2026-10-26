@@ -171,9 +171,11 @@ check("playbook 注册进 skills", () => {
   assert.equal(typeof h.skills[0].source, "string", "source 必须是字符串");
   assert.ok(h.skills[0].source.length > 0, "source 不能为空");
 });
-check("/armor 注册进 commands", () => {
-  assert.equal(h.commands.length, 1);
-  assert.equal(h.commands[0].name, "armor");
+check("/flash 注册进 commands，/armor 留作别名", () => {
+  const names = h.commands.map((c) => c.name);
+  assert.ok(names.includes("flash"), "主名应是 flash");
+  assert.ok(names.includes("armor"), "旧名 armor 要保留");
+  assert.equal(h.commands.length, 2);
 });
 
 console.log("\n2. 组装改写真的生效");
@@ -361,7 +363,28 @@ await checkAsync("自我撤回被记录", async () => {
   assert.ok(md.includes("自我撤回标记"), md.slice(-400));
 });
 
-console.log("\n6. /armor 命令");
+console.log("\n6. /flash 命令（旧名 /armor 等价）");
+await checkAsync("/flash light 与 /armor status 输出一致", async () => {
+  const flash = h.commands.find((c) => c.name === "flash");
+  const armor = h.commands.find((c) => c.name === "armor");
+  const a = await flash.handler({ rawInput: "light", agent: { session: { id: SID } } });
+  const b = await armor.handler({ rawInput: "status", agent: { session: { id: SID } } });
+  assert.equal(a.kind, "success");
+  assert.ok(a.text.includes("purge-flash 状态"), a.text);
+  assert.equal(a.text, b.text, "两个入口应走同一份渲染");
+});
+await checkAsync("/flash 不带参数默认给状态", async () => {
+  const flash = h.commands.find((c) => c.name === "flash");
+  const res = await flash.handler({ rawInput: "", agent: { session: { id: SID } } });
+  assert.equal(res.kind, "success");
+  assert.ok(res.text.includes("purge-flash 状态"));
+});
+await checkAsync("/flash help 里写明旧名", async () => {
+  const flash = h.commands.find((c) => c.name === "flash");
+  const res = await flash.handler({ rawInput: "help" });
+  assert.ok(res.text.includes("/flash light"));
+  assert.ok(res.text.includes("/armor"), "要告诉用户旧名还能用");
+});
 await checkAsync("/armor status 报告真实状态", async () => {
   const cmd = h.commands.find((c) => c.name === "armor");
   const res = await cmd.handler({ rawInput: "status", agent: { session: { id: SID } } });

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.5.2
+
+**命令改名：`/armor status` → `/flash light`。旧名保留。**
+
+命令跟着插件名走。`/armor` 是 dsh-purge 时代的名字，插件叫 `dsh-purge-flash`，
+主命令就该是 `/flash`；状态查询是「亮灯」，所以是 `light` 不是 `status`。
+
+| 现在 | 等价旧写法 |
+|---|---|
+| `/flash light` | `/armor status` |
+| `/flash on` / `off` | `/armor on` / `off` |
+| `/flash cost` | `/armor cost` |
+| `/flash recover` / `verify` / `list` / `flush` / `rewind` / `help` | 同旧名 |
+
+**`/armor` 没有删。** 两个名字注册的是同一个 handler，输出逐字节一致（`test/harness.mjs`
+里有一条断言在比这个）。理由很实在：旧 README、旧截图、旧 issue 里写的都是 `/armor`，
+删掉等于让照着旧文档操作的人看到「无此命令」，然后以为插件坏了。
+
+`status` 也仍然接受，作为 `light` 的同义词 —— 肌肉记忆不该被改名打断。
+
 ## 1.5.1（修订）
 
 安装器与技能注册的三个 bug，来自 [issue #1](https://github.com/jadezane6634-ops/dsh-purge-flash/issues/1)。

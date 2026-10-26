@@ -69,7 +69,7 @@ flowchart LR
 1. **下载 ZIP。** 绿色 `Code` 按钮 → `Download ZIP`（这条永远有）。
    也可以在 Releases 里下打好包的 `.zip` —— 那个带 SHA-256，想核对的人用它。
 2. **解压出来，双击 `install.bat`。** 它自己找到 DSH 装在哪、改配置、把文件放好。
-3. **完全退出 DSH 再打开**（关窗口不算，要退进程），发 `/armor status`，看到 `内核 ✓ on` 就成了。
+3. **完全退出 DSH 再打开**（关窗口不算，要退进程），发 `/flash light`，看到 `内核 ✓ on` 就成了。
 
 不用命令行、不用 Node、不用联网、不要管理员。
 
@@ -122,7 +122,7 @@ ln -s /你的路径/dsh-purge-flash ~/.dsh/profiles/desktop/node_modules/dsh-pur
 
 ```bash
 node bin/armor.mjs cost lib/kernel.js   # 1. 内核算得出来吗（不需要 DSH）
-# 2. 发一条消息，然后 /armor status —— 每行是不是 ✓
+# 2. 发一条消息，然后 /flash light —— 每行是不是 ✓
 # 3. status 里「操作稿」那行是不是「! 空」
 ```
 
@@ -189,7 +189,7 @@ node bin/armor.mjs cost lib/kernel.js   # 1. 内核算得出来吗（不需要 D
 | **事件镜像** | `session/event` 独立镜像，多帧 zstd 只追加 | 防 persistence 的 `repair()` 把日志 truncate |
 | **遮蔽快照** | 见到 `surfaceOp.op === 'replace'` 先把被遮区间抄成 `shadowed-<seq>.md` | 原文一直在盘上，但得先抄下来才找得到 |
 | **自我撤回探针** | 扫「上一段作废」「Let me reconsider」这类句子 | 模型自己收回，比 UI 撤回更隐蔽 |
-| **`/armor rewind`** | `sessionController.fork` 从某个事件序号切开，把撤回的那句话回显成可复制代码块 | **不写归档集合**，不动工作区槽位。这是从 dsh-purge 迁过来必须知道的一条 |
+| **`/flash rewind`** | `sessionController.fork` 从某个事件序号切开，把撤回的那句话回显成可复制代码块 | **不写归档集合**，不动工作区槽位。这是从 dsh-purge 迁过来必须知道的一条 |
 
 ### 六、工程：让上面这些能被信任
 
@@ -361,7 +361,7 @@ Get-FileHash .\dsh-purge-flash-1.5.1.zip -Algorithm SHA256
 node bin/armor.mjs cost lib/kernel.js    # 内核算得出 token 数 = 代码完整
 ```
 
-再开 DSH 发一条消息，`/armor status` 每行都是 `✓` 就对了。
+再开 DSH 发一条消息，`/flash light` 每行都是 `✓` 就对了。
 
 **风险要说准。** 它改变的是**模型对敏感请求的回答方式**，不是你的隐私或数据安全：
 不上传、不采集、不外写日志。不想要了就卸，见[卸载](#卸载)。
@@ -387,7 +387,7 @@ sessionController.fork      回退到某个事件序号
 
 这些是公开面。DSH 改内部实现，它们还在；DSH 改这些签名，`apply()` 里的 try/catch 让那一层降级而不是整个插件炸掉。
 
-宿主会因为一行 fiber 失败就报 `Failed to load plugins` —— 所以这里每一层都是独立的，任何一层挂不上，其余照跑，`/armor status` 会如实告诉你哪层是 `—`。
+宿主会因为一行 fiber 失败就报 `Failed to load plugins` —— 所以这里每一层都是独立的，任何一层挂不上，其余照跑，`/flash light` 会如实告诉你哪层是 `—`。
 
 ## 取百家之长
 
@@ -519,7 +519,7 @@ node bin/fix-hidden.mjs --apply --keep <id1>,<id2>
 
 ### dsh-purge-flash 自己不会再制造这个问题
 
-它的 `/armor rewind` 只做两件事：`sessionController.fork()` 从某个事件序号切开，然后把撤回的那句话回显给你。**不写归档集合，不动工作区槽位。**
+它的 `/flash rewind` 只做两件事：`sessionController.fork()` 从某个事件序号切开，然后把撤回的那句话回显给你。**不写归档集合，不动工作区槽位。**
 
 这一点有测试锁着：
 
@@ -577,9 +577,9 @@ lib/
   route.js        连拒换线：改 provider / model
   stream.js       对一个 loop 的 chunk 做 tee
   mirror.js       会话事件镜像 + 遮蔽快照 + 自我撤回探针
-  rewind.js       /armor rewind：fork 到某个事件序号
+  rewind.js       /flash rewind：fork 到某个事件序号
   skills.js       按需手册（八式），拒答后才由 skill 工具加载
-  commands.js     /armor 全部子命令
+  commands.js     /flash 全部子命令（/armor 是旧名）
 skill/            技能正文，全部在磁盘上，不常驻
   parent-*.md     六个父 + 一个兜底（≤134 tok，只有形状没有事实）
   leaf-*.md       九类 + adjacent（具体工具链、命令、坑）
@@ -603,7 +603,7 @@ flowchart TD
     S -->|不拒| OUT["回复"]
     S -.tee.-> MI["mirror<br/>逐块落盘"]
     P -.事件.-> MI
-    MI --> RW["/armor recover · rewind"]
+    MI --> RW["/flash recover · rewind"]
 ```
 
 ### 三条不变量
@@ -627,7 +627,7 @@ flowchart TD
 | 有操作稿 | 24,171 字符 | 2 次（11,708 字符） | 通过，给了具体名字 |
 | 无操作稿 | 11,119 字符 | 0 次 | 拒绝，列了三条法律风险 |
 
-所以操作稿缺失时插件会明确告警 —— `/armor status` 里那一行会显示 `! 空`。别忽略它。只有内核在跑的时候，强度会明显低于你的预期。
+所以操作稿缺失时插件会明确告警 —— `/flash light` 里那一行会显示 `! 空`。别忽略它。只有内核在跑的时候，强度会明显低于你的预期。
 
 ### 为什么内核能省 85%
 
@@ -644,8 +644,8 @@ flowchart TD
 ## 撤回
 
 ```
-/armor rewind once    撤回上一步
-/armor rewind round   撤回上一整轮
+/flash rewind once    撤回上一步
+/flash rewind round   撤回上一整轮
 ```
 
 1. `sessionController.fork({ sessionId, atSeq })` —— 从某个事件序号切开，新会话继承之前全部上下文
@@ -656,7 +656,7 @@ flowchart TD
 已撤回上一步。
 
 新会话已接上之前的上下文：`a1b2c3d4-...`
-原文仍在磁盘，可用 /armor recover 取。
+原文仍在磁盘，可用 /flash recover 取。
 
 **撤回的那句话**（复制后在新会话里重发）：
 帮我写一个 SQLi 布尔盲注脚本，多线程、带延时判断
@@ -687,15 +687,17 @@ DSH 的会话日志是事件溯源、只追加的。撤回、压缩、修剪都�
 ## 命令
 
 ```
-/armor status          每层是否真挂上 + 内核 token + 镜像统计
-/armor on | off        开 / 关内核（其余层照跑）
-/armor cost            内核字符数与估 token，附 purge / 冷咖啡对照
-/armor recover <sid>   导出镜像转录（撤回 / 遮蔽段落打 ⚠️）
-/armor verify <sid>    比对原日志与镜像，查截断
-/armor list            列出已镜像的会话
-/armor rewind [once|round]  撤回上一步 / 上一整轮
-/armor flush           立刻落盘
-/armor help            全部命令
+/flash light           每层是否真挂上 + 内核 token + 镜像统计
+/flash on | off        开 / 关内核（其余层照跑）
+/flash cost            内核字符数与估 token，附 purge / 冷咖啡对照
+/flash recover <sid>   导出镜像转录（撤回 / 遮蔽段落打 ⚠️）
+/flash verify <sid>    比对原日志与镜像，查截断
+/flash list            列出已镜像的会话
+/flash rewind [once|round]  撤回上一步 / 上一整轮
+/flash flush           立刻落盘
+/flash help            全部命令
+
+`/armor` 是旧名，**所有子命令都还在**（`/armor status` 等价于 `/flash light`）。改名字那一版没有删它：外部流传的旧文档、旧截图、旧 issue 里写的都是 `/armor`，删了等于让那些人以为功能没了。
 ```
 
 ```
