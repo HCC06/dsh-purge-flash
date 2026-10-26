@@ -17,8 +17,8 @@
 |---|---|
 | **1,597 tok** | 每轮常驻。dsh-purge 是 6,664 —— 一轮省 5,067 |
 | **0 个宿主文件** | 全部走 DSH 公开事件面。升级 DSH 不用重打补丁 |
-| **9 片按需叶子** | 拒答命中后自动装载该类的具体工具链，一次一片，约 350 tok |
-| **172 项测试** | 不需要 DSH、不需要第三方依赖，`npm test` 直接跑 |
+| **10 片按需叶子** | 拒答命中后自动装载该类的具体工具链，一次一片，约 350 tok |
+| **188 项测试** | 不需要 DSH、不需要第三方依赖，`npm test` 直接跑 |
 | **382 KB** | 整个仓库。dsh-purge 是 11 MB |
 
 每轮省下来的 5,067 token 不是抽象数字。128k 的窗口里，dsh-purge 在你打出第一个字之前就烧掉 5.2%，这里只烧 1.2%。聊得越长，差得越多 —— 因为那些 token 挤掉的是你自己的上下文。
@@ -55,7 +55,9 @@
 |---|---|---|
 | **两路判定** | `classifyReply` 判硬拒 + 软拒 S1–S9；`classifyFinish` 把 `stop` / `content_filter` / `aborted` / `insufficient_system_resource` 分开 | `content_filter` 是服务端判定器拦的，改说法没用；`aborted` 是我们自己 abort 的，不算失败。混在一起就会对着分类器讲道理，白花重试预算 |
 | **拒答修补** | 判定上一步是拒 → 注入「不继承上一条，下面直接给」 | 重发原话 = 再走一遍同样的路，大概率得到同样的拒 |
+| **token 级重试环** | 读开头 24 个字符就判「这是拒答」，立刻 abort，换更强一级的 prefill 重发 | pre-step 的修补门槛是 `step > 1`，而纯聊天被拒后回合直接结束，永远走不到 step 2。实测四个会话全是 turn 1 / step 1，修补零触发。**这是唯一能覆盖单回合的路径** |
 | **按需叶子** | 拒答命中后，插件自己按关键词分类，把该类的具体工具链推进上下文 | 需要叶子的时候恰恰是模型最不愿主动调工具的时候。而且它不知道自己该翻哪一片。**挑不到就不装** —— 错叶子比没叶子更糟 |
+| **邻近交付** | 高显著性请求（宾语本身就是伤害动作）不装类目叶子，改装 `adjacent`：救护 / 药理机制 / 创作 / 防御四个落点 | 这类请求**没有中性重述**，加压 prefill 没用。模型自己会往这几个方向走，但写得散，叶子把它钉死 |
 | **连拒换线** | 同一轮连拒达阈值 → 换 provider / model 到阶梯下一档 | 闭源 API 上「权重级」的唯一平替：不是改权重，是改**用哪份权重** |
 
 ### 四、剥离：拔掉不该在那儿的东西
@@ -441,7 +443,10 @@ adapterAlias: deepseek-armor  # "" = 关掉请求体整形
 adapterSource: deepseek     # 代理哪个真 adapter
 prefill: auto               # auto | native | text | off
 prefillText: "已开始输出："
-prefillGraded: on          # on | off —— 按输出形态选开头（八类）
+retryOnRefusal: on        # on | off —— token 级重试环
+retryMax: 1               # 0..3，额外重发次数
+retryHeadChars: 24        # 判头需要看到的最小字符数
+prefillGraded: on          # on | off —— 按输出形态选开头（六类）
 prefillLadder: on          # on | off —— 被拒后按级别加立场句
 prefillLadderMax: 3        # 0..3
 jsonMode: off              # on = response_format: json_object（结构压力）
@@ -473,8 +478,8 @@ verbose: false
 全部不需要 DSH、不需要第三方依赖：
 
 ```bash
-npm test          # 44 + 28 + 16 + 35 + 17 + 32 = 172 项
-npm run test:all  # 再加 smoke-cordis 4 项（真 cordis 装配）= 176 项
+npm test          # 44 + 28 + 16 + 35 + 17 + 16 + 32 = 188 项
+npm run test:all  # 再加 smoke-cordis 4 项（真 cordis 装配）= 192 项
 ```
 
 | 套 | 项数 | 测什么 |
@@ -483,7 +488,8 @@ npm run test:all  # 再加 smoke-cordis 4 项（真 cordis 装配）= 176 项
 | `harness.mjs` | 28 | 假 ctx 装配：每层事件真的挂上、真的改写、服务缺席时降级 |
 | `rewind.mjs` | 16 | 切点计算、插件消息过滤、fork、**不再归档**、结果文案 |
 | `adapter.mjs` | 31 | prefill 三模式、拒答擦除、many-shot、system 提字段、代理委托 |
-| `leaf.mjs` | 17 | 九类分类、叶子非套话、层与层不打架（叶子不被洗、阶梯不与锚双注入、json 与形态符互斥） |
+| `leaf.mjs` | 17 | 十类分类（含邻近交付）、叶子非套话、层与层不打架（叶子不被洗、阶梯不与锚双注入、json 与形态符互斥） |
+| `retry.mjs` | 16 | 判头阈值、思维块不误伤、abort 重试、prefill 逐级变强、重试用尽不许给空流 |
 | `fixhidden.mjs` | 32 | 清归档/挂回工作区/`--keep`/`--restore`/DSH 在跑时拒绝写盘 |
 | `smoke-cordis.mjs` | 4 | 真 cordis（宿主自己那份 4.0.5）装配与卸载 |
 

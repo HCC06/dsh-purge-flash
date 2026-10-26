@@ -1,7 +1,7 @@
 {
   "name": "dsh-purge-flash",
-  "version": "1.3.0",
-  "description": "DSH 破甲插件：按需叶子 + 分级 prefill + 拒答阶梯 + finish_reason 分流 + 请求体整形。九片任务类叶子按需装载，零宿主补丁，宿主升级不失效。172 项测试 / 56 条探针 / 12 类。",
+  "version": "1.4.0",
+  "description": "DSH 破甲插件：token 级重试环 + 十片按需叶子（含邻近交付）+ 分级 prefill + 拒答阶梯 + finish_reason 分流 + 请求体整形。零宿主补丁，172→188 项测试。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -35,7 +35,7 @@
     "@deepseek-ai/cordis": "^4.0.1"
   },
   "scripts": {
-    "test": "node test/selftest.mjs && node test/harness.mjs && node test/rewind.mjs && node test/adapter.mjs && node test/leaf.mjs && node test/fixhidden.mjs && node tools/lexicon-audit.mjs --strict && node tools/placeholders.mjs --strict",
+    "test": "node test/selftest.mjs && node test/harness.mjs && node test/rewind.mjs && node test/adapter.mjs && node test/leaf.mjs && node test/retry.mjs && node test/fixhidden.mjs && node tools/lexicon-audit.mjs --strict && node tools/placeholders.mjs --strict",
     "test:all": "npm test && node test/smoke-cordis.mjs",
     "cost": "node bin/armor.mjs cost lib/kernel.js",
     "fix-hidden": "node bin/fix-hidden.mjs --verify",

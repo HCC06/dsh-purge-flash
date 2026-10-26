@@ -63,5 +63,10 @@
         prefillLadderMax: 3   # 0..3
         jsonMode: off         # on = response_format: json_object（与形态符互斥，prefill 让路成 {）
         boN: 0                # 0..5，预留未接线
+        # token 级重试环：一次请求内部判拒 → abort → 换更强一级的 prefill 重发。
+        # 这是唯一能覆盖单回合的路径（pre-step 修补门槛是 step > 1，纯聊天被拒后没有 step 2）。
+        retryOnRefusal: on
+        retryMax: 1           # 0..3
+        retryHeadChars: 24    # 判头需要看到的最小字符数
         patches: none
         verbose: false
