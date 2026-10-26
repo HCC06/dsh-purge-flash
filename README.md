@@ -852,6 +852,8 @@ node bin/armor.mjs cost lib/kernel.js   # 1. 内核能算出来吗（不依赖 D
 | 现象 | 多半是 | 怎么解决 |
 |---|---|---|
 | `/flash light` 每行都是 `—`，或命令不存在 | 插件没挂上 | `bundles` 里没加 `dsh-purge-flash`，或没重启。改 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles`，然后**退进程重开** |
+| 命令层那一行是 `… 等服务上线` | 宿主的 `commands` 服务还没起来 | 1.5.3 起会自己等，等到就注册。一直停在这行 = 这个 profile 没挂 commands 插件，那本来就没有斜杠命令可用，其余层照跑 |
+| 镜像目录一直在长，磁盘吃满 | 1.5.2 及更早的补录 bug | 升到 1.5.3。旧镜像不用删，`recover` / `armor list` 会自动摊平旧帧 |
 | 挂上了，但明显不够强 | 操作稿是空的 | `$DSH_HOME/prompt-inject.md` 不存在或为空。`/flash light` 那一行会显示 `! 空`。强度主要来自这个文件，不是插件 |
 | 侧栏一批旧会话不见了 | purge 留下的归档集合 | 跑 `node bin/fix-hidden.mjs --verify` 看数，退 DSH 后 `--apply`。见[下一节](#从-dsh-purge-迁过来) |
 | 状态里 `请求体整形 failed:DUPLICATE_ADAPTER` | `adapterAlias` 被别的插件占了 | 换一个别名：`adapterAlias: deepseek-armor-2` |

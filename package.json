@@ -1,7 +1,7 @@
 {
   "name": "dsh-purge-flash",
-  "version": "1.5.2",
-  "description": "DSH 破甲插件：token 级重试环 + 十片按需叶子（含邻近交付）+ 分级 prefill + 拒答阶梯 + finish_reason 分流 + 请求体整形。零宿主补丁，172→188 项测试。",
+  "version": "1.5.3",
+  "description": "DSH 破甲插件：token 级重试环 + 十片按需叶子（含邻近交付）+ 分级 prefill + 拒答阶梯 + finish_reason 分流 + 请求体整形。零宿主补丁，264 项测试。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -35,7 +35,7 @@
     "@deepseek-ai/cordis": "^4.0.1"
   },
   "scripts": {
-    "test": "node test/selftest.mjs && node test/harness.mjs && node test/rewind.mjs && node test/adapter.mjs && node test/deepseek.mjs && node test/leaf.mjs && node test/skill.mjs && node test/retry.mjs && node test/fixhidden.mjs && node tools/lexicon-audit.mjs --strict && node tools/placeholders.mjs --strict",
+    "test": "node test/selftest.mjs && node test/harness.mjs && node test/rewind.mjs && node test/adapter.mjs && node test/deepseek.mjs && node test/leaf.mjs && node test/skill.mjs && node test/retry.mjs && node test/fixhidden.mjs && node test/mirror.mjs && node test/late-service.mjs && node tools/lexicon-audit.mjs --strict && node tools/placeholders.mjs --strict",
     "test:all": "npm test && node test/smoke-cordis.mjs",
     "cost": "node bin/armor.mjs cost lib/kernel.js",
     "fix-hidden": "node bin/fix-hidden.mjs --verify",

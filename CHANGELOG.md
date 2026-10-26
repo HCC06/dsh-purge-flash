@@ -1,5 +1,80 @@
 # Changelog
 
+## 1.5.3
+
+[issue #2](https://github.com/jadezane6634-ops/dsh-purge-flash/issues/2) 与
+[issue #3](https://github.com/jadezane6634-ops/dsh-purge-flash/issues/3)。两个真 bug、两个小 bug，
+根因都在「把一批当成一条」和「服务晚一步就永久放弃」这两件事上。
+
+**1. 镜像层无限重写同一批事件（0.83 MB/s，单会话 256 MB）。**
+
+`backfill()` 里写的是：
+
+```js
+pushEvent(id, events.slice(have));   // 传进去的是一个数组
+```
+
+而 `pushEvent` 的第二个参数是**一条**事件。于是缓冲区里躺着一个「装着 9,666 条事件的数组」，
+`commit()` 看到的 `events.length` 是 1 ——
+
+- `slot.events += 1`（不是 += 9666）→ 计数器永远停在十几
+- `Math.max(...events.map(e => e.seq))` 拿到的是数组的 `.seq`（undefined）→ `lastSeq` 永远是 0
+- 下一次 `backfill` 算出 `events.length - have` 还是那一大截 → **同一批事件被反复追加**
+
+这就是 issue 里那张表：`{"events": 44, "lastSeq": 0, "bytes": 251160296}` ——
+44 是「补录轮次」，不是事件数。`chmod 444` 后增长归零也对得上：追加先抛错，
+计数器连碰都没碰到。
+
+修法四处，缺一不可：
+
+| 改动 | 为什么 |
+|---|---|
+| `pushEvents(sid, list)` 批量入口 | 批就是批，条就是条，不再混用 |
+| commit 用 `reduce` 取代 `Math.max(...arr)` | 大批次会撑爆参数栈，那条 `RangeError` 会被外层吞掉 |
+| 索引写失败不再静默 | 写不进去就把这些会话本进程标记为「不再补录」，否则每轮都重放 |
+| 单会话字节上限 `mirrorMaxMb`（默认 64） | 兜底。计数可以错，磁盘不能满 |
+
+顺带：`saveIndex()` 改成「读盘 → 逐会话取更大的计数 → 写回」。两个实例共用一份
+`index.json` 时，后写的那个不会把先写的计数改小 —— 改小一次，对方下一轮就重放一次。
+
+**旧镜像不用删。** 1.5.2 写进去的帧是「一行一个数组」，`recover` / `verify` / `armor list`
+现在都会摊平它，直接能读。
+
+**2. `/flash` 与 `/armor` 永远是「未注册的斜杠命令」。**
+
+```js
+const commands = ctx?.get?.("commands");   // cordis 4 里 strict 默认 true
+```
+
+提供方 fiber 还没 `ACTIVE` 就返回 `undefined`，而这个 `undefined` 发生在 `apply()` 那一瞬间，
+之后**再也不会重试**。DSH 里 `commands` / `skills` 是独立插件，装载顺序不保证 —— 晚一步，
+命令层就永久 `no-service`。
+
+而写成 `ctx.commands` 又得把名字塞进本插件的 `inject`，那是**硬依赖**：profile 里没挂
+commands 插件时，整个 fiber 永远 PENDING，内核跟着一起死。比拿不到命令更糟。
+
+现在走子 fiber（`lib/hostservice.js`）：
+
+```js
+ctx.inject(["commands"], (child) => { /* 服务一到就注册 */ });
+```
+
+服务缺席时它静静待着，一出现立刻激活并回调，父 fiber 照常跑。`skills` 同样处理。
+
+**3. `armor list` 在几十个会话时 OOM。**
+
+它原来是「每个会话 `decodeMultiFrame` 一遍」再数条数。事件数 `index.json` 里就有，
+现在只读元数据；索引里没有的会话显示 `-`，不假装是 0。
+
+**4. `status` 里操作稿的 token 高估约 2.7 倍。**
+
+`chars × 0.72` 是按 CJK 密度算的，而操作稿往往九成 ASCII。现在跟 `armor cost`
+用同一个估算器（`estimateTokens`）：20,969 字符那份显示 `≈ 5,591 tok`，
+以前显示 `≈ 15,098 tok`。内核与合计两行也一并改成实测值。
+
+**回归测试**：`test/mirror.mjs`（6 组，钉住「重复补录零增长」）与
+`test/late-service.mjs`（真 cordis，钉住「服务迟到仍能注册」），都进了 `npm test`。
+
 ## 1.5.2
 
 **命令改名：`/armor status` → `/flash light`。旧名保留。**

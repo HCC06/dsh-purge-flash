@@ -127,17 +127,24 @@ function eventToMd(event) {
   return null;
 }
 
+/** 摊平一行：1.5.2 及更早把「一批」当「一条」写进镜像，读回来是一层数组。 */
+function flatten(line, out) {
+  try {
+    const parsed = JSON.parse(line);
+    if (Array.isArray(parsed)) out.push(...parsed);
+    else out.push(parsed);
+  } catch {
+    /* 坏行跳过 */
+  }
+}
+
 function readEvents(file) {
   const buf = fs.readFileSync(file);
   const text = decodeMultiFrame(buf);
   const events = [];
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
-    try {
-      events.push(JSON.parse(line));
-    } catch {
-      /* 坏行跳过 */
-    }
+    flatten(line, events);
   }
   return events;
 }
@@ -148,11 +155,7 @@ function readEventsWithFrames(file) {
   const events = [];
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
-    try {
-      events.push(JSON.parse(line));
-    } catch {
-      /* 坏行跳过 */
-    }
+    flatten(line, events);
   }
   return { events, frames: countFrames(buf) };
 }
@@ -227,17 +230,29 @@ function listSessions(root) {
   } catch {
     return sessions;
   }
+  // 事件条数从 index.json 读，不解帧。
+  // 以前这里对每个会话 decodeMultiFrame 一遍：镜像上百 MB 时 `armor list`
+  // 直接把堆打满（issue #2 第 3 条），而它要的只是三个数字。
+  let index = {};
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(root, "index.json"), "utf8"));
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) index = raw;
+  } catch {
+    index = {};
+  }
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const dir = path.join(root, entry.name);
-    let events = 0;
+    const meta = index[entry.name] || {};
+    const counted = Number(meta.events);
+    const events = Number.isFinite(counted) ? counted : -1;
+    let shadows = 0;
     try {
-      events = readEvents(path.join(dir, "events.jsonl.zstd")).length;
+      shadows = fs.readdirSync(dir).filter((f) => f.startsWith("shadowed-")).length;
     } catch {
-      events = 0;
+      shadows = 0;
     }
-    const shadows = readShadowed(dir).size;
-    sessions.push({ id: entry.name, events, shadows, bytes: directoryBytes(dir) });
+    sessions.push({ id: entry.name, events, shadows, bytes: directoryBytes(dir), lastSeen: Number(meta.lastSeen) || 0 });
   }
   sessions.sort((a, b) => b.events - a.events || a.id.localeCompare(b.id));
   return sessions;
@@ -293,7 +308,8 @@ function cmdList(opts) {
     return 0;
   }
   const lines = sessions.map(
-    (s) => `${s.id}  ${s.events}  ${s.shadows}  ${(s.bytes / 1024).toFixed(1)} KB`,
+    (s) =>
+      `${s.id}  ${s.events < 0 ? "-" : s.events}  ${s.shadows}  ${(s.bytes / 1024).toFixed(1)} KB`,
   );
   process.stdout.write(`${lines.join("\n")}\n`);
   return 0;
