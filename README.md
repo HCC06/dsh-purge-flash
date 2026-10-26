@@ -339,7 +339,7 @@ print(d.stream_reader(open(sys.argv[1],'rb')).read().decode('utf-8','replace'))"
 SHA-256：
 
 ```powershell
-Get-FileHash .\dsh-purge-flash-1.5.1.zip -Algorithm SHA256
+Get-FileHash .\dsh-purge-flash-1.5.2.zip -Algorithm SHA256
 ```
 
 两串一样再往下。
