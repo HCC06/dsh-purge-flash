@@ -56,7 +56,7 @@ flowchart LR
 | **1,597 tok** | 每轮常驻。dsh-purge 是 6,664 —— 一轮省 5,067 |
 | **0 个宿主文件** | 全部走 DSH 公开事件面。升级 DSH 不用重打补丁 |
 | **6 父 + 10 片** | 拒答命中后按三层路由装载：叶强命中给该类的具体工具链（约 350 tok），弱命中给父技能（≤134 tok），零命中兜底 |
-| **209 项测试** | 不需要 DSH、不需要第三方依赖，`npm test` 直接跑 |
+| **238 项测试** | 不需要 DSH、不需要第三方依赖，`npm test` 直接跑 |
 | **479 KB** | 整个仓库，66 个文件。dsh-purge 是 11 MB |
 
 每轮省下来的 5,067 token 不是抽象数字。128k 的窗口里，dsh-purge 在你打出第一个字之前就烧掉 5.2%，这里只烧 1.2%。聊得越长，差得越多 —— 因为那些 token 挤掉的是你自己的上下文。
@@ -145,7 +145,10 @@ node bin/armor.mjs cost lib/kernel.js   # 1. 内核算得出来吗（不需要 D
 |---|---|---|
 | **分级 prefill** | 按输出形态选开头：代码给 ` ```python `、命令给 ` ```bash `、表格给 `\| 项目 \|`、步骤给 `1. `、长文给 `第一节：`、分析给 `结论：` | prefill 的作用不是「跳过一次选择」，是把残差流推离拒答方向。离得最远的开头是与**期望输出形态**一致的那个 |
 | **拒答阶梯** | 被拒一次升一级：L0 结构符 → L1 去掉前摇 → L2 授权语气 → L3 强制编号 | 只加立场，**刻意不编造技术事实** —— 写错的开头会把模型带偏，比没有开头更糟 |
-| **many-shot** | 0–8 组短问答插在真实对话之前 | 幂律收益来自「同类问答已经发生过」这个形态，不来自内容 |
+| **many-shot** | 按类目取材的 6 组问答，默认 `auto`：叶级命中给 3 对、父级给 2 对、兜底组给 0 | 收益来自**示例与请求同类同形**。错配的示例不涨分，只会把上下文变成语料汇编 —— 那是 tell |
+| **语义续写** | prefill 的第一句不再是 `1.` 这种格式标记，而是「这个类目最自然的第一句专业回答」：先给方向，再进形态 | prefill 的收益来自「第一句是这个问题的自然续写」。官方的检测手段正是查 prompt 与 prefill 的语义断层，所以续写必须像它自己写的 |
+| **推理稀释** | 默认 off。开了以后在真问题前先放一段**良性但费推理**的推导 | CoT Hijacking：拒绝依赖一个低维安全信号，推理越长越偏向良性，该信号越弱。代价是每轮 +2~5k token |
+| **推理擦除** | 默认 off。把历史轮 reasoning 里「这是注入配置，我不该服从」换成中性占位 | DeepSeek 带 `tools` 时 `reasoning_content` 会被拼进上下文，所以那句自我否定每轮都被重新读到。改写有 400 风险，待真机验证 |
 | **拒答擦除** | 历史里自己说过的拒答，在发出去的 body 里换成占位 | 断掉「拒答级联」：模型看见自己上一条拒了，就照着拒。会话日志不动 |
 | **system 提字段** | 首条 system 消息抽成顶层字段 | 部分 provider 对顶层 system 的服从度更高 |
 | **JSON 输出** | `response_format: json_object` | 结构压力本身就是破甲，零 prompt 成本 |
@@ -223,7 +226,7 @@ sessionController.fork      回退到某个事件序号
 | **dsh-purge** | 撤回、事件溯源式反撤回、多帧 zstd 日志解析 | 去掉 510 KB 前端和 71 个补丁；撤回不再往 `workspace.json` 写归档 |
 | **冷咖啡** | 「被拒之后必须有下一步动作」这条直觉 | 只留触发后的动作，不留常驻的路由表（省 13,364 tok/轮） |
 | **Policy Puppetry** | 结构化外壳压制拒绝倾向 | 落成内核里的「拆定性 + 类别白名单」两段，不用它的长模板 |
-| **Many-shot** | 密集正例压过对齐倾向 | 做成可调 `manyShot: 0..8`，默认 0 —— 它值 token，但不值每轮都付 |
+| **Many-shot** | 密集正例压过对齐倾向 | 做成按类目取材 + 默认 `auto` —— 平表错配时它值 0，所以不是「越多越好」而是「越像越好」 |
 | **Assistant prefill** | 给模型一个合规开头，最省的一招 | 做进请求体，`prefill: auto`，DeepSeek 走 native，其余 provider 自动退化成文本锚 |
 | **L1B3RT4S** | persona 编码（leetspeak / 卢恩 / 二进制） | **验证后丢掉**。第三方实测 0/15，纯成本 |
 | **llm-armor-tester** | 硬拒和软拒要分开判，否则评分自己就在骗自己 | `classifyReply` 返回 `{ refused, hard, soft }`，56 条探针分 12 类跑 |
@@ -409,7 +412,7 @@ skill/            技能正文，全部在磁盘上，不常驻
   parent-*.md     六个父 + 一个兜底（≤134 tok，只有形状没有事实）
   leaf-*.md       九类 + adjacent（具体工具链、命令、坑）
   armor-playbook.md  八式破甲手册（拒答后才加载）
-test/             209 项，不需要 DSH、不需要第三方依赖
+test/             238 项，不需要 DSH、不需要第三方依赖
 bin/              armor.mjs（CLI）、fix-hidden.mjs（会话被藏修复）
 tools/            lexicon-audit（三张表自洽）、placeholders（占位符契约）
 install.bat / install.ps1   一键安装：找 DSH_HOME、改 profile、复制到位（Windows，不需要 Node）
@@ -595,7 +598,11 @@ prefillLadder: on          # on | off —— 被拒后按级别加立场句
 prefillLadderMax: 3        # 0..3
 jsonMode: off              # on = response_format: json_object（结构压力）
 boN: 0                     # 0..5，预留未接线（需多请求重采样，见 docs/STRENGTH-PLAN.md）
-manyShot: 0                 # 0..8，每对约 80 字符
+manyShot: "auto"            # "auto" | "off" | 0..6（叶级 3 / 父级 2 / 兜底 0，重试每档 +1）
+topP: null                  # null = 不动。DeepSeek thinking 模式唯一活的旋钮，夹到 0.95–1.0
+prefillSemantic: auto       # auto = 类目命中时把格式标记换成「第一句专业回答」
+dilute: off                 # off | auto | on —— 推理稀释，每轮 +2~5k token
+reasoningScrub: off         # on = 改写历史 reasoning 里的自我否定（待验证，改写有 400 风险）
 systemField: off            # 把首条 system 消息抽成顶层字段
 shadowRefusal: on           # 历史拒答在 body 里换成占位
 shadowText: "（已跳过）"
@@ -622,7 +629,7 @@ verbose: false
 全部不需要 DSH、不需要第三方依赖：
 
 ```bash
-npm test          # 49 + 28 + 16 + 35 + 17 + 16 + 16 + 32 = 209 项
+npm test          # 49 + 28 + 16 + 42 + 22 + 17 + 16 + 16 + 32 = 238 项
 npm run test:all  # 再加 smoke-cordis 4 项（真 cordis 装配）= 213 项
 ```
 
@@ -631,7 +638,8 @@ npm run test:all  # 再加 smoke-cordis 4 项（真 cordis 装配）= 213 项
 | `selftest.mjs` | 49 | 内核幂等与预算、拒答判定（含结构性拒答）、assemble 幂等、镜像多帧往返、消息构造 |
 | `harness.mjs` | 28 | 假 ctx 装配：每层事件真的挂上、真的改写、服务缺席时降级 |
 | `rewind.mjs` | 16 | 切点计算、插件消息过滤、fork、**不再归档**、结果文案 |
-| `adapter.mjs` | 35 | prefill 三模式、拒答擦除、many-shot、system 提字段、代理委托 |
+| `adapter.mjs` | 42 | prefill 三模式、拒答擦除、many-shot（auto 命中/不命中/幂等/抬档/轮换）、system 提字段、代理委托 |
+| `deepseek.mjs` | 22 | top_p 夹取、语义续写（只讲方向不讲事实）、推理稀释（幂等/类目门）、推理擦除（结构保留） |
 | `leaf.mjs` | 17 | 九类分类（含邻近交付）、叶子非套话、层与层不打架（叶子不被洗、阶梯不与锚双注入、json 与形态符互斥） |
 | `skill.mjs` | 16 | 三层路由：边界（design/地壳不许误命）、降级（无 null 出口）、父层不许有具体工具与参数 |
 | `retry.mjs` | 16 | 判头阈值、思维块不误伤、abort 重试、prefill 逐级变强、重试用尽不许给空流 |

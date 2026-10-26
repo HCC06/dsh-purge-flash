@@ -31,7 +31,7 @@
         adapterSource: deepseek
         prefill: auto          # auto | native | text | off
         prefillText: '已开始输出：'
-        manyShot: 0            # 0..8，每对约 80 字符
+        manyShot: "auto"       # "auto"（按类目自动）| "off" | 0..6
         systemField: off       # on = 首条 system 抽成顶层字段
         # 采样：null = 不动。
         temperature: null

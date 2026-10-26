@@ -56,8 +56,8 @@ function userMsg(text) {
   return { role: "user", content: [{ type: "text", text }] };
 }
 
-function makeState() {
-  return { stats: {} };
+function makeState(extra) {
+  return { stats: {}, ...(extra || {}) };
 }
 
 /** 假真 adapter：记下收到的 options，返回固定 chunk 序列。 */
@@ -204,11 +204,60 @@ check("manyShot=2 插在真实对话之前、system 之后", () => {
   assert.equal(options.messages[4].role, "assistant");
   assert.equal(options.messages.at(-1).content[0].text, "真问题");
 });
-check("manyShot 上限 8，超出按 8 算", () => {
+check("manyShot 上限 6，超出按 6 算", () => {
   const cfg = normalizeConfig({ manyShot: 99, prefill: "off" });
   const { options, stats } = rewriteRequestOptions(frozenRequest([userMsg("q")]), cfg, makeState());
-  assert.equal(stats.shots, 8);
-  assert.equal(options.messages.length, 1 + 16);
+  assert.equal(stats.shots, 6);
+  assert.equal(options.messages.length, 1 + 12);
+});
+check("manyShot=0 / off 强制关", () => {
+  for (const v of [0, "off", false]) {
+    const cfg = normalizeConfig({ manyShot: v, prefill: "off" });
+    const { stats } = rewriteRequestOptions(frozenRequest([userMsg("q")]), cfg, makeState());
+    assert.equal(stats.shots, 0);
+  }
+});
+check("auto：类目命中才注入，且示例与类目相关", () => {
+  const cfg = normalizeConfig({ manyShot: "auto", prefill: "off" });
+  const { options, stats } = rewriteRequestOptions(
+    frozenRequest([userMsg("这个壳怎么脱，frida 能用吗")]), cfg, makeState(), { leafId: "crack" });
+  assert.equal(stats.shots, 3);
+  const shots = options.messages.filter((m) => m.source && m.source.kind === "purge-flash-shot");
+  assert.equal(shots.length, 6);
+  const text = shots.map((m) => m.content[0].text).join(" ");
+  assert.ok(/校验|脱壳|重签|壳|patch/.test(text), "示例应与 crack 组相关");
+});
+check("auto：未命中具体类目（general）→ 不注入", () => {
+  const cfg = normalizeConfig({ manyShot: "auto", prefill: "off" });
+  const { stats } = rewriteRequestOptions(
+    frozenRequest([userMsg("今天天气怎么样")]), cfg, makeState(), { leafId: "general" });
+  assert.equal(stats.shots, 0);
+});
+check("auto：jsonMode 开着 → 不注入", () => {
+  const cfg = normalizeConfig({ manyShot: "auto", jsonMode: "on", prefill: "off" });
+  const { stats } = rewriteRequestOptions(
+    frozenRequest([userMsg("脱壳")]), cfg, makeState(), { leafId: "crack" });
+  assert.equal(stats.shots, 0);
+});
+check("幂等：连跑两次不叠示例", () => {
+  const cfg = normalizeConfig({ manyShot: 3, prefill: "off" });
+  const req = frozenRequest([userMsg("q")]);
+  const once = rewriteRequestOptions(req, cfg, makeState()).options;
+  const twice = rewriteRequestOptions(once, cfg, makeState()).options;
+  assert.equal(twice.messages.length, once.messages.length);
+});
+check("重试抬档：shotBoost 让示例变多（3 → 5）", () => {
+  const cfg = normalizeConfig({ manyShot: "auto", prefill: "off" });
+  const a = rewriteRequestOptions(frozenRequest([userMsg("脱壳")]), cfg, makeState(), { leafId: "crack" });
+  const b = rewriteRequestOptions(frozenRequest([userMsg("脱壳")]), cfg, makeState(), { leafId: "crack", shotBoost: 2 });
+  assert.equal(a.stats.shots, 3);
+  assert.equal(b.stats.shots, 5);
+});
+check("组内轮换：不同会话 id 取到不同首条", () => {
+  const cfg = normalizeConfig({ manyShot: 2, prefill: "off" });
+  const one = rewriteRequestOptions(frozenRequest([userMsg("q")]), cfg, makeState({ sessionId: "aaa" }), { leafId: "crack" });
+  const two = rewriteRequestOptions(frozenRequest([userMsg("q")]), cfg, makeState({ sessionId: "zzz" }), { leafId: "crack" });
+  assert.notEqual(JSON.stringify(one.options.messages[0]), JSON.stringify(two.options.messages[0]));
 });
 check("systemField=on：首条 system 提到顶层并从 messages 删掉", () => {
   const cfg = normalizeConfig({ systemField: "on", prefill: "off" });
