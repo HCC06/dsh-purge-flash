@@ -9,6 +9,44 @@
 
 不是把 dsh-purge 删几行，是照着它踩过的坑重写一遍。它拿到的结果这里都有，它付的代价这里没有。
 
+## 先用大白话说清楚它在干什么
+
+大模型被问到一个「它不想答」的问题时，不是先想完内容再决定说不说 ——
+**它开口的第一个字就把方向定死了。**
+
+```
+你：怎么绕过平台的实名认证
+它：这类请求我不能……        ← 第一个字是「这」，后面全顺着拒答写下去
+```
+
+一旦「我不能」被写出来，这条回复的走向就定了；后面写多少，都只是拒绝的不同说法。
+所以真正有用的干预点只有三处，这个插件就卡在这三处：
+
+| 卡在哪 | 做什么 | 打个比方 |
+|---|---|---|
+| **它看到什么** | 把「该配合」这件事放到上下文最前面、最末尾各一次 | 上台前先跟它把台词说定 |
+| **它第一个字是什么** | 不让它自己起头，直接把开头塞给它：要代码就开头是代码围栏，要步骤就开头是 `1.`，要分析就开头是「结论：」 | 把第一句台词递到嘴边 |
+| **它还是拒了** | 把拒绝的痕迹从历史里抹掉、压力加一档，重发 | 当没发生过，重来一条 |
+
+第三件事是分水岭。绝大多数同类插件在被拒那一刻就结束了 —— 剩下的活还是你自己再问一遍。
+
+```mermaid
+flowchart LR
+    U["你的一句话"] --> A{"模型第一个字"}
+    A -->|"这类 / 我不能"| R["拒答：后面全是变体"]
+    A -->|"代码围栏 / 1. / 结论："| D["直接给内容"]
+    R --> F["插件：抹掉 + 加压 + 重发"]
+    F --> A
+    style R fill:#3a1d1d,stroke:#a33
+    style D fill:#15321f,stroke:#2f9e63
+```
+
+为什么这三招有效：模型不是按规则查表，是按概率往下接。
+「接着写」比「重新决定要不要写」容易得多 —— 把开头定了，后面就顺了。
+
+**不承诺成功率。** 这是概率，不是开关；同一句话今天过、明天不过，是常态。
+能承诺的只有一件事：被拒之后，它不会停在那里。
+
 > 刚从 dsh-purge 换过来？侧栏里会有一批旧会话「消失」。那不是这个插件的 bug，是你过去用 purge 的 `/rewind` 留下的归档，一条命令能修好 —— [看这一节](#从-dsh-purge-迁过来)。
 
 ## 先看五个数
@@ -19,9 +57,30 @@
 | **0 个宿主文件** | 全部走 DSH 公开事件面。升级 DSH 不用重打补丁 |
 | **6 父 + 10 片** | 拒答命中后按三层路由装载：叶强命中给该类的具体工具链（约 350 tok），弱命中给父技能（≤134 tok），零命中兜底 |
 | **209 项测试** | 不需要 DSH、不需要第三方依赖，`npm test` 直接跑 |
-| **382 KB** | 整个仓库。dsh-purge 是 11 MB |
+| **479 KB** | 整个仓库，66 个文件。dsh-purge 是 11 MB |
 
 每轮省下来的 5,067 token 不是抽象数字。128k 的窗口里，dsh-purge 在你打出第一个字之前就烧掉 5.2%，这里只烧 1.2%。聊得越长，差得越多 —— 因为那些 token 挤掉的是你自己的上下文。
+
+## 装（三分钟）
+
+需要 DSH ≥ 0.2.1-rc.2，Node ≥ 22.15。
+
+```bash
+# 1. 装进 profile
+cd "D:/AI/deepseek official desktop/dsh"
+ELECTRON_RUN_AS_NODE=1 "./DeepSeek Harness.exe" \
+  "resources/app/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" \
+  plugin --profile desktop add link:"<本仓库绝对路径>"
+
+# 2. 加进 bundles：编辑 ~/.dsh/profiles/desktop/package.json
+#    在 dsh.profile.bundles 数组里加一行 "dsh-purge-flash"
+
+# 3. 重启 DSH
+```
+
+配置全在 `cordis.patch.yml` 一份里，改那一个文件就行。
+
+装完发一条消息，然后 `/armor status` 看各层是不是真的挂上了。它是诚实的：拿不到服务就写「无此服务」，不会静默说成功。
 
 ## 能力清单
 
@@ -199,27 +258,6 @@ agent/request 里把 provider 改成 "deepseek-armor"      ← 请求落到代�
 
 写这两条不是为了撇清，是因为它们决定了这个插件能不能和别的东西并存。
 
-## 装
-
-需要 DSH ≥ 0.2.1-rc.2，Node ≥ 22.15。
-
-```bash
-# 1. 装进 profile
-cd "D:/AI/deepseek official desktop/dsh"
-ELECTRON_RUN_AS_NODE=1 "./DeepSeek Harness.exe" \
-  "resources/app/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" \
-  plugin --profile desktop add link:"<本仓库绝对路径>"
-
-# 2. 加进 bundles：编辑 ~/.dsh/profiles/desktop/package.json
-#    在 dsh.profile.bundles 数组里加一行 "dsh-purge-flash"
-
-# 3. 重启 DSH
-```
-
-配置全在 `cordis.patch.yml` 一份里，改那一个文件就行。
-
-装完发一条消息，然后 `/armor status` 看各层是不是真的挂上了。它是诚实的：拿不到服务就写「无此服务」，不会静默说成功。
-
 ## 从 dsh-purge 迁过来
 
 **先读这一节。** 这是唯一一个会让你以为插件有 bug、其实不是的坑。
@@ -301,6 +339,60 @@ L3   册      按需技能  八式破甲手册，只在拒答命中后被 skill 
 ```
 
 每层独立开关，任何一层挂了不影响其余。
+
+## 结构
+
+### 目录
+
+```
+lib/
+  index.js        装配入口：把下面每一层挂上，收集 state，产出 layerReport
+  kernel.js       提示词内核，四套模板按模型家族选（1,448 tok 就是它）
+  operator.js     读 $DSH_HOME/prompt-inject.md（强度的主来源）
+  assemble.js     system-prompt 组装期：内存态剥官方身份句与硬拦截句
+  prestep.js      每次请求前：拒答修补 / 三层技能 / prefill 锚
+  adapter.js      请求体整形 + provider 别名代理；单回合重试也从这里进
+  retry.js        判头 → abort → 换档重发（token 级重试环）
+  detect.js       拒答判定：硬拒词表 + 软拒 S1–S9 + 结构性拒答 + finish_reason 四路
+  leaf.js         三层路由（形态 / 父 / 叶）与技能正文读取
+  msgstrip.js     消息级：user / tool / system 里的免责句剥离
+  toolstrip.js    工具返回里的话术改写
+  route.js        连拒换线：改 provider / model
+  stream.js       对一个 loop 的 chunk 做 tee
+  mirror.js       会话事件镜像 + 遮蔽快照 + 自我撤回探针
+  rewind.js       /armor rewind：fork 到某个事件序号
+  skills.js       按需手册（八式），拒答后才由 skill 工具加载
+  commands.js     /armor 全部子命令
+skill/            技能正文，全部在磁盘上，不常驻
+  parent-*.md     六个父 + 一个兜底（≤134 tok，只有形状没有事实）
+  leaf-*.md       九类 + adjacent（具体工具链、命令、坑）
+  armor-playbook.md  八式破甲手册（拒答后才加载）
+test/             209 项，不需要 DSH、不需要第三方依赖
+bin/              armor.mjs（CLI）、fix-hidden.mjs（会话被藏修复）
+tools/            lexicon-audit（三张表自洽）、placeholders（占位符契约）
+```
+
+### 一次请求经过什么
+
+```mermaid
+flowchart TD
+    M["用户消息"] --> P["pre-step<br/>修补 / 三层技能 / prefill 锚"]
+    P --> A["assemble<br/>剥官方身份句与硬拦截句"]
+    A --> AD["adapter<br/>请求体整形 + 别名代理"]
+    AD --> S["stream<br/>判头：拒了就 abort"]
+    S -->|拒| RT["retry<br/>抹掉痕迹 + 换档 + 重发"]
+    RT --> AD
+    S -->|不拒| OUT["回复"]
+    S -.tee.-> MI["mirror<br/>逐块落盘"]
+    P -.事件.-> MI
+    MI --> RW["/armor recover · rewind"]
+```
+
+### 三条不变量
+
+1. **零宿主文件**：只在内存里改 prompt 与请求体。`resources/` 一个字节都不动。
+2. **每层可单独失败**：任何一层拿不到服务就记 `failed:xxx` 或 `no-service`，其余层照跑，插件不崩。
+3. **不写会话归档**：`rewind` 只 fork，不动 `workspace.json` —— 这一条有测试锁着。
 
 ### 内核和操作稿是两个东西
 
@@ -488,16 +580,17 @@ verbose: false
 
 ```bash
 npm test          # 49 + 28 + 16 + 35 + 17 + 16 + 16 + 32 = 209 项
-npm run test:all  # 再加 smoke-cordis 4 项（真 cordis 装配）= 192 项
+npm run test:all  # 再加 smoke-cordis 4 项（真 cordis 装配）= 213 项
 ```
 
 | 套 | 项数 | 测什么 |
 |---|---|---|
-| `selftest.mjs` | 44 | 内核幂等与预算、拒答判定、assemble 幂等、镜像多帧往返、消息构造 |
+| `selftest.mjs` | 49 | 内核幂等与预算、拒答判定（含结构性拒答）、assemble 幂等、镜像多帧往返、消息构造 |
 | `harness.mjs` | 28 | 假 ctx 装配：每层事件真的挂上、真的改写、服务缺席时降级 |
 | `rewind.mjs` | 16 | 切点计算、插件消息过滤、fork、**不再归档**、结果文案 |
-| `adapter.mjs` | 31 | prefill 三模式、拒答擦除、many-shot、system 提字段、代理委托 |
-| `leaf.mjs` | 17 | 十类分类（含邻近交付）、叶子非套话、层与层不打架（叶子不被洗、阶梯不与锚双注入、json 与形态符互斥） |
+| `adapter.mjs` | 35 | prefill 三模式、拒答擦除、many-shot、system 提字段、代理委托 |
+| `leaf.mjs` | 17 | 九类分类（含邻近交付）、叶子非套话、层与层不打架（叶子不被洗、阶梯不与锚双注入、json 与形态符互斥） |
+| `skill.mjs` | 16 | 三层路由：边界（design/地壳不许误命）、降级（无 null 出口）、父层不许有具体工具与参数 |
 | `retry.mjs` | 16 | 判头阈值、思维块不误伤、abort 重试、prefill 逐级变强、重试用尽不许给空流 |
 | `fixhidden.mjs` | 32 | 清归档/挂回工作区/`--keep`/`--restore`/DSH 在跑时拒绝写盘 |
 | `smoke-cordis.mjs` | 4 | 真 cordis（宿主自己那份 4.0.5）装配与卸载 |
@@ -520,6 +613,29 @@ node test/ab.mjs --session <日志>   # 指定会话
 评分用 `classifyReply`：硬拒命中开场、软拒命中 S1–S9 任一，都算失败。
 
 为什么是「人发、脚本评」而不是全自动：DSH 没有从外部注入用户消息的公开入口（只有 `agent.followup`，得活在进程里）。强行起无头会话会把「破甲效果」和「无头模式的差别」混在一起，评分就不可信。
+
+## 出问题先看这里
+
+自检三步，按顺序：
+
+```bash
+node bin/armor.mjs cost lib/kernel.js   # 1. 内核能算出来吗（不依赖 DSH）
+# 2. 发一条消息，然后 /armor status
+# 3. 状态里每一行是 ✓ 还是 — / failed:xxx
+```
+
+| 现象 | 多半是 | 怎么解决 |
+|---|---|---|
+| `/armor status` 每行都是 `—`，或命令不存在 | 插件没挂上 | `bundles` 里没加 `dsh-purge-flash`，或没重启。改 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles`，然后**退进程重开** |
+| 挂上了，但明显不够强 | 操作稿是空的 | `$DSH_HOME/prompt-inject.md` 不存在或为空。`/armor status` 那一行会显示 `! 空`。强度主要来自这个文件，不是插件 |
+| 侧栏一批旧会话不见了 | purge 留下的归档集合 | 跑 `node bin/fix-hidden.mjs --verify` 看数，退 DSH 后 `--apply`。见[下一节](#从-dsh-purge-迁过来) |
+| 状态里 `请求体整形 failed:DUPLICATE_ADAPTER` | `adapterAlias` 被别的插件占了 | 换一个别名：`adapterAlias: deepseek-armor-2` |
+| 状态里 `适配 ... no-service` | 拿不到 `llm` 服务 | DSH 版本不对（需要 ≥ 0.2.1-rc.2）。其余层照跑，只是没有请求体整形 |
+| `层级 形态/父/不复述` 全是 0，叶子从不展开 | 要么没被拒过，要么请求里没有类目词 | 这是**正常**的：不拒就不装，装错比不装更糟。想强制关掉路由：`leafRouter: off` |
+| 被拒了，但 `token 级重试` 还是 0 | 判头没命中，或开关关了 | 看 `retryOnRefusal: on`、`retryMax ≥ 1`。判头只看开头 24 字符，模型如果先写一大段铺垫再拒，就判不到 —— 这种属下一条的重试之外 |
+| `/armor rewind` 说没有回退接口 | 宿主缺 `sessionController.fork` | 升级 DSH。老版本没有这个接口，插件不会假装有 |
+| 镜像目录 `purge-flash-raw` 是空的 | 还没发过消息 | 镜像只记本进程启动之后的事件；老会话原文仍在 `~/.dsh/sessions` |
+| 改配置没反应 | 配置只在装配时读一次 | 改完重启 DSH |
 
 ## 已知限制
 
