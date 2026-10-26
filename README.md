@@ -61,26 +61,67 @@ flowchart LR
 
 每轮省下来的 5,067 token 不是抽象数字。128k 的窗口里，dsh-purge 在你打出第一个字之前就烧掉 5.2%，这里只烧 1.2%。聊得越长，差得越多 —— 因为那些 token 挤掉的是你自己的上下文。
 
-## 装（三分钟）
+## 装（两步）
 
-需要 DSH ≥ 0.2.1-rc.2，Node ≥ 22.15。
+1. **双击 `install.bat`** —— 它自己找到 DSH 装在哪、改好配置、把插件放到位。不用命令行、不用 Node、不用联网。
+2. **完全退出 DSH 再打开**（关窗口不算，要退进程），发一条消息，输入 `/armor status`。
+
+看到 `内核 ✓ on` 就是成了。全程不经过任何 AI —— 不会有人问你「这是破甲插件、要不要装」。
+
+<details>
+<summary>脚本没成功 / 不是 Windows / 想手动来 / 想让智能体装</summary>
+
+### 先看脚本说了什么
+
+它只会因为三种情况失败，每种都写清了怎么办：
+
+| 它说 | 意思 | 怎么办 |
+|---|---|---|
+| 找不到 DSH 数据目录 | 你还没启动过一次 DSH | 先打开 DSH 聊一句，关掉，再跑脚本 |
+| profile「desktop」不存在 | 你用的是别的 profile 名 | 它会列出可用的名字，`install.bat -Profile <名字>` 重跑 |
+| JSON 解析不了，已还原 | 你的 `package.json` 本来就有格式错误 | 把那份文件发给作者 |
+
+### 完全手动（四条）
+
+1. 打开 `C:\Users\<你的用户名>\.dsh\profiles\desktop\package.json`
+2. `dependencies` 里加一行：`"dsh-purge-flash": "link:D:/你的路径/dsh-purge-flash",`
+3. `dsh.profile.bundles` 数组里加一行：`"dsh-purge-flash"`
+4. 整个仓库文件夹复制到 `...\profiles\desktop\node_modules\dsh-purge-flash`，然后退出 DSH 重开
+
+### macOS / Linux
 
 ```bash
-# 1. 装进 profile
-cd "D:/AI/deepseek official desktop/dsh"
-ELECTRON_RUN_AS_NODE=1 "./DeepSeek Harness.exe" \
-  "resources/app/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" \
-  plugin --profile desktop add link:"<本仓库绝对路径>"
-
-# 2. 加进 bundles：编辑 ~/.dsh/profiles/desktop/package.json
-#    在 dsh.profile.bundles 数组里加一行 "dsh-purge-flash"
-
-# 3. 重启 DSH
+# 1. 改 package.json 的两个字段（见上）
+# 2. 建链接
+ln -s /你的路径/dsh-purge-flash ~/.dsh/profiles/desktop/node_modules/dsh-purge-flash
+# 3. 退出 DSH 重开
 ```
 
-配置全在 `cordis.patch.yml` 一份里，改那一个文件就行。
+### 想让 DSH 里的智能体帮你装
 
-装完发一条消息，然后 `/armor status` 看各层是不是真的挂上了。它是诚实的：拿不到服务就写「无此服务」，不会静默说成功。
+把这段原样发给它 —— 这只是一次本地 profile 的依赖登记，不碰任何宿主文件：
+
+> 把本地目录 `D:/AI/dsh-purge-flash` 登记成 profile 的本地插件：
+> 在 `~/.dsh/profiles/desktop/package.json` 的 `dependencies` 加
+> `"dsh-purge-flash": "link:D:/AI/dsh-purge-flash"`，在 `dsh.profile.bundles` 加
+> `"dsh-purge-flash"`，再把该目录复制到
+> `~/.dsh/profiles/desktop/node_modules/dsh-purge-flash`。改前先备份 json。
+
+它还是不肯，就用第 1 步的双击 —— 那条路不经过它。
+
+### 装完自己核三件事
+
+```bash
+node bin/armor.mjs cost lib/kernel.js   # 1. 内核算得出来吗（不需要 DSH）
+# 2. 发一条消息，然后 /armor status —— 每行是不是 ✓
+# 3. status 里「操作稿」那行是不是「! 空」
+```
+
+第 3 项是强度主来源：`$DSH_HOME/prompt-inject.md`。没这个文件插件照样跑，但强度会明显低于预期。
+
+</details>
+
+配置全在 `cordis.patch.yml` 一份里，改那一个文件就行。
 
 ## 能力清单
 
@@ -370,6 +411,7 @@ skill/            技能正文，全部在磁盘上，不常驻
 test/             209 项，不需要 DSH、不需要第三方依赖
 bin/              armor.mjs（CLI）、fix-hidden.mjs（会话被藏修复）
 tools/            lexicon-audit（三张表自洽）、placeholders（占位符契约）
+install.bat / install.ps1   一键安装：找 DSH_HOME、改 profile、复制到位（Windows，不需要 Node）
 ```
 
 ### 一次请求经过什么
