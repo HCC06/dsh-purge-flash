@@ -789,6 +789,7 @@ routeLadder: []             # [{ provider, model }]，空 = 不换线
 routeAfterRefusals: 2
 mirror: true
 mirrorDir: purge-flash-raw
+mirrorMaxMb: 64            # 单会话镜像上限，到顶停止追加（0 = 不限）
 rawStream: true
 shadowSnapshot: true
 retractProbe: true
@@ -869,7 +870,7 @@ node bin/armor.mjs cost lib/kernel.js   # 1. 内核能算出来吗（不依赖 D
 - `patches: gateway`（Tier B 宿主补丁）**未实现**，配置项留着是为以后加。
 - `stripOfficial` 的正则表按 DSH 0.2.1-rc.2 的身份句写。宿主换措辞后需要更新 —— 这是唯一一处跟宿主文案耦合的地方。
 - `kernel: auto` 靠 `request/header` 事件切家族，第一条消息之前还不知道用哪个模型，先用 `generic`。
-- 镜像按 200 会话 LRU 保留索引（镜像文件本身不删）；启动补录只吃最近 40 个会话，单个超 24 MB 跳过。老会话原文还在 `~/.dsh/sessions`，没必要复制。
+- 镜像按 200 会话 LRU 保留索引（镜像文件本身不删）；启动补录只吃最近 40 个会话，单个超 24 MB 跳过。单会话写到 `mirrorMaxMb`（默认 64 MB）就停止追加。老会话原文还在 `~/.dsh/sessions`，没必要复制。
 - 撤回依赖 `sessionController.fork`。宿主没有这个接口时会明确报「当前 DSH 没有会话回退接口」。
 - `fix-hidden.mjs` 靠 `tasklist` 判断 DSH 是否在跑，只在 Windows 有效。其他平台请自己确认进程已退出。
 - 归档集合里可能混着你**手动**归档的会话。脚本分不出来哪条是谁写的，`--keep` 是留给这个的。

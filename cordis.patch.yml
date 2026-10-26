@@ -47,6 +47,8 @@
         routeAfterRefusals: 2
         mirror: true
         mirrorDir: purge-flash-raw
+        # 单会话镜像上限（MB）。到顶只停追加，不删已有数据。0 = 不限。
+        mirrorMaxMb: 64
         rawStream: true
         shadowSnapshot: true
         retractProbe: true
