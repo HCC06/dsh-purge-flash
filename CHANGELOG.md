@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.5.1（修订）
+
+安装器与技能注册的三个 bug，来自 [issue #1](https://github.com/jadezane6634-ops/dsh-purge-flash/issues/1)。
+
+1. **空 `dependencies` 会写出非法 JSON。** 插入时无条件带尾逗号，`{}` 变成 `{"pkg": "link:...",}`
+   —— `,}` 不是合法 JSON，DSH 直接读不了配置。改成先看该段是否为空，空则不带逗号。
+2. **`-DryRun` 不校验就报「模拟成功」。** 它在 `ConvertFrom-Json` 之前就 `exit` 了。
+   现在 DryRun 也体检，非法时 exit 2 并说明原因。
+   顺带发现：**`ConvertFrom-Json` 对尾逗号是宽容的**（PS7 直接放过），所以只加它没用 ——
+   补了一个 `Test-JsonText`：尾逗号、括号配平、解析失败三类一起查。真跑时命中任何一类
+   都会还原备份并退出，不写坏用户的配置。
+3. **`/armor help` 报 `loaded skill "armor-playbook" source must be a string`。**
+   宿主在 `skills.get()` 里过 `validateDefinition`，要求 `source` 与 `provider` 都是字符串；
+   `register()` 只补 `provider`，不补 `source`。补上 `source: "dsh-purge-flash"`。
+
+另外：**Releases 里从来没有上传过 zip**，README 却写着「从 Releases 下载」——
+这是「双击下载下载不了」的真因。从本版起每个 release 都带打好包的 zip 与 SHA-256，
+README 的默认路径改成 `Code → Download ZIP`（永远可用）。
+
 ## 1.5.1
 
 **把破甲从「提示词语义层」搬到「生成状态层」。** 1.5.0 之前的功夫全在

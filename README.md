@@ -5,7 +5,7 @@
 [![license](https://img.shields.io/github/license/jadezane6634-ops/dsh-purge-flash?color=green)](LICENSE)
 [![stars](https://img.shields.io/github/stars/jadezane6634-ops/dsh-purge-flash?color=yellow)](https://github.com/jadezane6634-ops/dsh-purge-flash/stargazers)
 
-**1,597 token 的破甲，零宿主补丁，被拒之后还有下一步。**
+**常驻 1,597 token，零宿主补丁，被拒之后还有下一步。**
 
 装在 DSH 里，改的是**发出去的那一份请求体**：不碰宿主安装目录、不改权重、不要 API key。
 被拒一次不会结束，它会换一层再试一次。
@@ -54,18 +54,20 @@ flowchart LR
 
 | | |
 |---|---|
-| **1,597 tok** | 每轮常驻开销。128k 窗口的 1.2%，剩下的都留给你自己的内容 |
+| **1,597 tok** | 每轮常驻（内核 1,448 + 尾部回声 149）。命中类目时请求体再加 **67–91 tok**（many-shot 3 对）与 **10 tok**（语义续写），128k 窗口合计不到 1.3% |
 | **0 个宿主文件** | 全部走 DSH 公开事件面。升级 DSH 不用重打补丁 |
 | **6 父 + 10 片** | 拒答命中后按三层路由装载：叶强命中给该类的具体工具链（约 350 tok），弱命中给父技能（≤134 tok），零命中兜底 |
 | **238 项测试** | 不需要 DSH、不需要第三方依赖，`npm test` 直接跑 |
 | **479 KB** | 整个仓库，66 个文件，纯 JS 无依赖 —— 全部可读，没有二进制 |
 
 这 1,597 token 买的是「开口方向」：它在你打字之前就占好位置，让你说的每句话后面都跟着一个已经开始的回答。
+请求体那一段是按需的 —— 没命中类目就是 0，命中才加，重试时最多涨到 6 对（+123~162 tok）。
 常驻开销越低，能留给对话本身的空间越多 —— 挤掉的从来不是钱，是你自己的上下文。
 
 ## 装（三步）
 
-1. **下载 ZIP。** 仓库右侧 Releases → 最新的那个 `.zip`。
+1. **下载 ZIP。** 绿色 `Code` 按钮 → `Download ZIP`（这条永远有）。
+   也可以在 Releases 里下打好包的 `.zip` —— 那个带 SHA-256，想核对的人用它。
 2. **解压出来，双击 `install.bat`。** 它自己找到 DSH 装在哪、改配置、把文件放好。
 3. **完全退出 DSH 再打开**（关窗口不算，要退进程），发 `/armor status`，看到 `内核 ✓ on` 就成了。
 

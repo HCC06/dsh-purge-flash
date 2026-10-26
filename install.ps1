@@ -21,6 +21,21 @@ $ErrorActionPreference = 'Stop'
 $Repo = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Pkg  = 'dsh-purge-flash'
 
+function Test-JsonText($t) {
+  # ConvertFrom-Json 对尾逗号是宽容的（PS7 直接放过），所以不能只靠它。
+  # 这里补三类最容易被手改出来的问题：尾逗号、括号不配平、解析失败。
+  $problems = @()
+  if ($t -match ',\s*[}\]]') { $problems += "有尾逗号（,} 或 ,]）" }
+  $ob = ([regex]::Matches($t, '\{')).Count
+  $cb = ([regex]::Matches($t, '\}')).Count
+  $os = ([regex]::Matches($t, '\[')).Count
+  $cs = ([regex]::Matches($t, '\]')).Count
+  if ($ob -ne $cb) { $problems += "大括号不配平（$ob / $cb）" }
+  if ($os -ne $cs) { $problems += "方括号不配平（$os / $cs）" }
+  try { $null = $t | ConvertFrom-Json } catch { $problems += "ConvertFrom-Json 解析失败" }
+  return $problems
+}
+
 function Say($t) { Write-Host $t }
 function Ok($t)  { Write-Host "  [ok] $t" -ForegroundColor Green }
 function Warn($t){ Write-Host "  [!]  $t" -ForegroundColor Yellow }
@@ -101,7 +116,13 @@ if ($hasDep -and $hasBun) {
   if (-not $hasDep) {
     $open = [regex]::Match($text, '"dependencies"\s*:\s*\{')
     $at = $open.Index + $open.Length
-    $text = $text.Insert($at, "`r`n    `"$Pkg`": `"$linkVal`",")
+    # 空的 dependencies 不能带尾逗号：{"a":"b",} 是非法 JSON。
+    # 有内容时插到最前面，尾逗号由后面那一条兜住。
+    if ($mDep.Groups[1].Value.Trim() -eq '') {
+      $text = $text.Insert($at, "`r`n    `"$Pkg`": `"$linkVal`"`r`n  ")
+    } else {
+      $text = $text.Insert($at, "`r`n    `"$Pkg`": `"$linkVal`",")
+    }
     Ok "加依赖 → $linkVal"
   } else {
     Ok "依赖已存在"
@@ -122,15 +143,26 @@ if ($hasDep -and $hasBun) {
   }
 
   if ($DryRun) {
+    # DryRun 也要校验：不然会拿一份非法 JSON 告诉你「模拟安装成功」。
+    $problems = @(Test-JsonText $text)
+    $valid = ($problems.Count -eq 0)
     Say ""
     Say "  --- DryRun：下面是改完的样子（没落盘） ---"
     Say $text
-    exit 0
+    Say ""
+    if ($valid) {
+      Ok "DryRun 校验：改完的 JSON 合法"
+      exit 0
+    }
+    Warn ("DryRun 校验：改完的 JSON 有问题 —— " + ($problems -join '；'))
+    Warn "真跑会拦下来并还原备份，不会写坏你的配置。"
+    exit 2
   }
 
-  try { $null = $text | ConvertFrom-Json } catch {
+  $problems = @(Test-JsonText $text)
+  if ($problems.Count -gt 0) {
     Copy-Item $Backup $PkgPath -Force
-    Die "改完 JSON 解析不了，已还原。这份 package.json 本身可能有格式问题。"
+    Die ("改完的 JSON 有问题（" + ($problems -join '；') + "），已还原。这份 package.json 本身可能有格式问题，建议先手动修好再装。")
   }
   [System.IO.File]::WriteAllText($PkgPath, $text, (New-Object System.Text.UTF8Encoding $false))
   Ok "package.json 已写入并校验通过"
