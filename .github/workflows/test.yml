@@ -28,6 +28,7 @@ jobs:
           node test/rewind.mjs
           node test/adapter.mjs
           node test/leaf.mjs
+          node test/skill.mjs
           node test/retry.mjs
           node test/fixhidden.mjs
 

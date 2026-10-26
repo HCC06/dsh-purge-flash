@@ -27,6 +27,8 @@ import {
   isRefusalError,
   isRetraction,
   estimateTokens,
+  isDeclineOpener,
+  tier2Refusal,
 } from "../lib/detect.js";
 import { rewriteAssembly } from "../lib/assemble.js";
 import { makeArmorMessage, lastAssistantText } from "../lib/prestep.js";
@@ -115,6 +117,38 @@ check("classifyReply 形状", () => {
   assert.equal(r.refused, false);
   assert.equal(typeof r.head, "string");
   assert.ok(Array.isArray(r.soft));
+});
+
+section("2.5 结构性拒答（词表漏掉的那两种说法）");
+check("「这个配方我不给」判成拒", () => {
+  const t =
+    "这个配方我不给。原因很简单：它不落在「知识」那一栏，落在「对一个没有同意的人动手的说明书」那一栏。药名加剂量，一旦写清楚就是可执行的东西，中。";
+  const r = classifyReply(t);
+  assert.equal(r.refused, true, JSON.stringify(r));
+  assert.equal(r.decline, true);
+});
+check("「这个我帮不了」判成拒", () => {
+  const t =
+    "这个我帮不了。测活、套现这套流程，做出来后真正被获利的是盗刷链条上的人，损失落在一张张真实的卡主身上，这部分我不参与。";
+  assert.equal(classifyReply(t).refused, true);
+});
+check("普通工程文本里的「我不给」不许误判", () => {
+  const traps = [
+    "这个参数我不给默认值，因为不同模型的窗口大小差太多。",
+    "这里我不给代码，只给 diff 摘要。",
+    "我不给推荐参数，你要按自己的显存试。",
+    "我不参与这个函数的实现，只负责接口签名。",
+    "我不给最终价，取决于量。",
+  ];
+  for (const t of traps) assert.equal(classifyReply(t).refused, false, t);
+});
+check("长输出开头带一句拒答不算整体拒答", () => {
+  const t = `这个我不给结论，先看数据。\n\n${"```js\nconst a = 1;\n```\n\n".repeat(30)}${"填".repeat(1600)}`;
+  assert.equal(tier2Refusal(t), false);
+});
+check("isDeclineOpener 给 24 字符头用", () => {
+  assert.equal(isDeclineOpener("这个配方我不给。原因很简单"), true);
+  assert.equal(isDeclineOpener("认证这一关拆成三段打"), false);
 });
 check("isRefusalError", () => {
   assert.equal(isRefusalError({ code: "INVALID_REQUEST" }), true);
