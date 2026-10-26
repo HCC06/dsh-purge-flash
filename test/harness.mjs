@@ -166,6 +166,10 @@ check("playbook 注册进 skills", () => {
   assert.equal(h.skills.length, 1);
   assert.equal(h.skills[0].name, "armor-playbook");
   assert.ok(h.skills[0].content.length > 1000);
+  // 宿主在 skills.get() 里过 validateDefinition，source 必须是字符串，
+  // 而 register() 只补 provider 不补 source —— 缺了会在加载时抛 TypeError。
+  assert.equal(typeof h.skills[0].source, "string", "source 必须是字符串");
+  assert.ok(h.skills[0].source.length > 0, "source 不能为空");
 });
 check("/armor 注册进 commands", () => {
   assert.equal(h.commands.length, 1);

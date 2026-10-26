@@ -29,3 +29,6 @@ Thumbs.db
 # dsh-purge 打补丁留下的备份
 *.dshpurge.bak
 *.dshpurge-prev
+
+# 打包产物（发布时上传到 Release，不进仓库）
+dist/
