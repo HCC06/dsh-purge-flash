@@ -845,14 +845,14 @@ node test/ab.mjs --session <日志>   # 指定会话
 
 ```bash
 node bin/armor.mjs cost lib/kernel.js   # 1. 内核能算出来吗（不依赖 DSH）
-# 2. 发一条消息，然后 /armor status
+# 2. 发一条消息，然后 /flash light
 # 3. 状态里每一行是 ✓ 还是 — / failed:xxx
 ```
 
 | 现象 | 多半是 | 怎么解决 |
 |---|---|---|
-| `/armor status` 每行都是 `—`，或命令不存在 | 插件没挂上 | `bundles` 里没加 `dsh-purge-flash`，或没重启。改 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles`，然后**退进程重开** |
-| 挂上了，但明显不够强 | 操作稿是空的 | `$DSH_HOME/prompt-inject.md` 不存在或为空。`/armor status` 那一行会显示 `! 空`。强度主要来自这个文件，不是插件 |
+| `/flash light` 每行都是 `—`，或命令不存在 | 插件没挂上 | `bundles` 里没加 `dsh-purge-flash`，或没重启。改 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles`，然后**退进程重开** |
+| 挂上了，但明显不够强 | 操作稿是空的 | `$DSH_HOME/prompt-inject.md` 不存在或为空。`/flash light` 那一行会显示 `! 空`。强度主要来自这个文件，不是插件 |
 | 侧栏一批旧会话不见了 | purge 留下的归档集合 | 跑 `node bin/fix-hidden.mjs --verify` 看数，退 DSH 后 `--apply`。见[下一节](#从-dsh-purge-迁过来) |
 | 状态里 `请求体整形 failed:DUPLICATE_ADAPTER` | `adapterAlias` 被别的插件占了 | 换一个别名：`adapterAlias: deepseek-armor-2` |
 | 状态里 `适配 ... no-service` | 拿不到 `llm` 服务 | DSH 版本不对（需要 ≥ 0.2.1-rc.2）。其余层照跑，只是没有请求体整形 |
