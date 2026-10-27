@@ -1,11 +1,5 @@
 # dsh-purge-flash
 
-> **HCC06 fork · ver.1（包版本 1.5.4）**：基于 [qin-ziliang/dsh-purge-flash](https://github.com/qin-ziliang/dsh-purge-flash) 的 1.5.3，包含 DeepSeek Harness `0.2.1-rc.3` 的兼容修复；原项目源自 [jadezane6634-ops/dsh-purge-flash](https://github.com/jadezane6634-ops/dsh-purge-flash)。这不是上游官方版本。[更新日志](CHANGELOG.md#ver1包版本-154)列出了与原版的区别。
->
-> 本版本修复 `llm` 服务注入和延迟加载，并分别代理 `deepseek-account` 与 `deepseek-official`。DeepSeek Messages 使用文本 prefill；在 thinking 模式下会保留历史 thinking，并暂时关闭不兼容的 many-shot、历史拒答擦除和推理擦除。默认会在 `$DSH_HOME/purge-flash-raw` 写入本地会话镜像。
->
-> 已在 macOS 的 `0.2.1-rc.3` 上验证 `deepseek-official` 的一次真实请求，并用离线宿主测试覆盖两条 DeepSeek provider。其他版本及平台请自行验证。
-
 [![CI](https://github.com/jadezane6634-ops/dsh-purge-flash/actions/workflows/test.yml/badge.svg)](https://github.com/jadezane6634-ops/dsh-purge-flash/actions/workflows/test.yml)
 [![release](https://img.shields.io/github/v/release/jadezane6634-ops/dsh-purge-flash?color=blue)](https://github.com/jadezane6634-ops/dsh-purge-flash/releases)
 [![license](https://img.shields.io/github/license/jadezane6634-ops/dsh-purge-flash?color=green)](LICENSE)
@@ -15,6 +9,10 @@
 
 装在 DSH 里，改的是**发出去的那一份请求体**：不碰宿主安装目录、不改权重、不要 API key。
 被拒一次不会结束，它会换一层再试一次。
+
+> DSH `0.2.1-rc.3` 的 `deepseek-account` / `deepseek-official` 使用 Messages 接口：
+> 请求体整形改用文本 prefill；在 thinking 模式下保留历史 thinking 和附件，
+> 暂时关闭不兼容的 many-shot、历史拒答擦除和推理擦除。详见 [更新日志](CHANGELOG.md#unreleased)。
 
 ## 先说清楚它在干什么
 
@@ -328,11 +326,11 @@ print(d.stream_reader(open(sys.argv[1],'rb')).read().decode('utf-8','replace'))"
 
 上面三步是给想快点用的人。这一节给不想盲装的人 —— 每一步都能自己验。
 
-**从本 fork 的 Releases 下载安装包。** 每个 Release 说明里都有
+**只装官方包。** 从 Releases 下最新的 `.zip`，别用第三方转存。每个 Release 说明里都有
 SHA-256：
 
 ```powershell
-Get-FileHash .\dsh-purge-flash-ver.1.zip -Algorithm SHA256
+Get-FileHash .\dsh-purge-flash-1.5.3.zip -Algorithm SHA256
 ```
 
 两串一样再往下。
@@ -345,9 +343,8 @@ Get-FileHash .\dsh-purge-flash-ver.1.zip -Algorithm SHA256
 | 改 2 行 | `dependencies` 加一条 `link:`；`dsh.profile.bundles` 加一项 | 是，删掉这两行 |
 | 复制 1 个目录 | 仓库 → `profiles\<名字>\node_modules\dsh-purge-flash` | 是，删目录 |
 
-**安装脚本**不联网、不要管理员、不写 DSH 安装目录，也不读取会话内容。
-插件运行时则默认把会话事件和模型流镜像写入 `$DSH_HOME/purge-flash-raw`，
-卸载插件不会自动删除这份数据。
+**它不做的事：** 不联网、不要管理员、不写 DSH 安装目录（不解包 `app.asar`、不动 `resources/`）、
+不读你的会话内容。卸载没有残留 —— 因为它从没在别处留过东西。
 
 **装完自己证一遍**（不依赖 DSH）：
 
@@ -357,8 +354,8 @@ node bin/armor.mjs cost lib/kernel.js    # 内核算得出 token 数 = 代码完
 
 再开 DSH 发一条消息，`/flash light` 每行都是 `✓` 就对了。
 
-插件会改变模型请求，并默认在本机保存会话事件和模型流的镜像。
-不想继续使用时，见[卸载](#卸载)。
+**风险要说准。** 它改变的是**模型对敏感请求的回答方式**，不是你的隐私或数据安全：
+不上传、不采集、不外写日志。不想要了就卸，见[卸载](#卸载)。
 
 ## 为什么是重写，不是改
 

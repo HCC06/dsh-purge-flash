@@ -1,9 +1,8 @@
 # Changelog
 
-## ver.1（包版本 1.5.4）
+## Unreleased
 
-HCC06 fork 基于上游 1.5.3 的兼容修复，并非上游官方发布版本。针对 DeepSeek Harness
-`0.2.1-rc.3`：
+针对 DeepSeek Harness `0.2.1-rc.3` 的兼容修复：
 
 - 使用独立子 fiber 注入 `llm`，支持服务及 adapter 晚到和重载。
 - 分别代理 `deepseek-account` 和 `deepseek-official`，保留其他 provider 的路由。
