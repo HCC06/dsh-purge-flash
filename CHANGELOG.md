@@ -1,5 +1,22 @@
 # Changelog
 
+## ver.1（包版本 1.5.4）
+
+HCC06 fork 基于上游 1.5.3 的兼容修复，并非上游官方发布版本。针对 DeepSeek Harness
+`0.2.1-rc.3`：
+
+- 使用独立子 fiber 注入 `llm`，支持服务及 adapter 晚到和重载。
+- 分别代理 `deepseek-account` 和 `deepseek-official`，保留其他 provider 的路由。
+- 适配宿主 adapter 的模型元数据和能力查询接口。
+- 对 DeepSeek Messages 使用文本 prefill；thinking 模式下保留历史 thinking 和附件，
+  并关闭不兼容的 many-shot、历史拒答擦除和推理擦除。
+- 在 `/flash light` 中显示最近请求实际使用的整形选项。
+
+新增 `test/llm-service.mjs`、`test/llm-runtime.mjs` 和 `test/llm-messages.mjs`
+验证服务生命周期、真实宿主运行时以及 Messages 序列化。`npm run test:host`
+需要将 `CORDIS_PATH` 设置为宿主的 Cordis 入口；如果该入口在 Electron 的
+`app.asar` 内，测试需要使用支持读取该归档的 Electron Node 运行时。
+
 ## 1.5.3
 
 [issue #2](https://github.com/jadezane6634-ops/dsh-purge-flash/issues/2) 与

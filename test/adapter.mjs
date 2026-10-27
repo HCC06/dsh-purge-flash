@@ -172,6 +172,13 @@ check("text：不改角色，只把开头挂到 user 末尾", () => {
   assert.ok(options.messages[0].content[0].text.includes(DEFAULT_PREFILL_TEXT));
   assert.equal(stats.prefill, "text");
 });
+check("text prefill 保留 user 的非文本内容块", () => {
+  const image = { type: "image", attachment: { attachmentId: "offline" } };
+  const req = frozenRequest([{ role: "user", content: [{ type: "text", text: "原话" }, image] }]);
+  const { options } = rewriteRequestOptions(req, normalizeConfig({ prefill: "text" }), makeState());
+  assert.deepEqual(options.messages[0].content[1], image);
+  assert.equal(req.messages[0].content[0].text, "原话");
+});
 check("末条已是 assistant 时不追加（避免两条 assistant 连排）", () => {
   const cfg = normalizeConfig({ prefill: "native" });
   const req = frozenRequest([userMsg("问"), { role: "assistant", content: [{ type: "text", text: "答" }] }]);
